@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"github.com/dgraph-io/badger/v4/badger/cmd"
 )
 
-
-
 func main() {
-	fmt.Println("Blockchain in Go")
+	cmd.Execute()
 }

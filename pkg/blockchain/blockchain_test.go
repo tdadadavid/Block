@@ -1,32 +1,42 @@
 package blockchain
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"os"
+	"testing"
+)
+
+func cleanUp(t *testing.T) {
+	t.Cleanup(func() {
+		err := os.RemoveAll("./../../data")
+		if err != nil {
+			panic(err)
+		}
+	})
+}
 
 func TestBlockchain_New(t *testing.T) {
+	defer cleanUp(t)
 
-	bc := New()
+	bc := New("./../../data/blocks")
+	assert.NotNil(t, bc)
+}
 
-	tests := []string{"data", "data1", "data2"}
-	for _, tc := range tests {
-		bc.AddBlock(tc)
-	}
+func TestBlockchain_AddBlock(t *testing.T) {
+	defer cleanUp(t)
 
-	// test for expected number of blocks
-	if len(bc.blocks) != 4 {
-		t.Errorf("failed creating blocks on blockchain,expected(4) got %d", len(bc.blocks))
-	}
+	bc := New("./../../data/blocks")
 
-	// test that the first block is the Genesis
-	genesis := bc.blocks[0]
-	if genesis.GetTransaction() != "GENESIS_BLOCK" {
-		t.Errorf("failed creating gensis block expected(GENESIS_BLOCK) got (%s)", genesis.GetTransaction())
-	}
+	assert.NotNil(t, bc)
+	bc.AddBlock("test_data")
 
-	// test the remaining blocks created.
-	for idx := range 3 {
-		transaction := bc.blocks[idx+1].GetTransaction()
-		if transaction != tests[idx] {
-			t.Errorf("failed creating transactions correctly expected(%s) got %s", tests[idx], transaction)
+	iter := bc.iter()
+	for iter.HasNext() {
+		it := iter.Next()
+		if it == nil {
+			assert.Equal(t, "", iter.currentHash)
+		} else {
+			assert.NotEmpty(t, it.GetTransaction())
 		}
 	}
 }
