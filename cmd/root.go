@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var rootCmd = &cobra.Command{
@@ -16,6 +17,13 @@ var rootCmd = &cobra.Command{
 	Example: "block add b <DATA>",
 }
 
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
 func init() {
 	addBlockCmd.PersistentFlags().String("block", "", "Add block to the blockchain")
 	printCmd.PersistentFlags().String("chain", "", "Print the chain information")
@@ -26,4 +34,4 @@ func init() {
 	rootCmd.AddCommand(printCmd)
 }
 
-//TODO: Flags are not working and badger db inter-faringing
+//TODO: improve the flag system

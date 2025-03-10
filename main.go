@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/dgraph-io/badger/v4/badger/cmd"
+	"github.com/tdadadavid/block/cmd"
 )
 
 func main() {

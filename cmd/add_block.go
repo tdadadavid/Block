@@ -6,7 +6,7 @@ import (
 )
 
 var addBlockCmd = &cobra.Command{
-	Use:     "AddBlock",
+	Use:     "add",
 	Short:   "Use to add a new block",
 	Long:    "What is a blockchain without a block 🧱",
 	Run:     Handle,
