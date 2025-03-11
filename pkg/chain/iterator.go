@@ -52,7 +52,7 @@ func (it *ChainIterator) HasNext() bool {
 //   - currBlock: The pointer to the current block from the database
 func (it *ChainIterator) Next() (curBlock *block.Block) {
 	// check if there is a next block on the chain
-	if it.HasNext() {
+	if !it.HasNext() {
 		it.currentHash = ""
 		return curBlock
 	}
