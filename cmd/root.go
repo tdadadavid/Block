@@ -16,7 +16,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "block",
-	Short: "block is a tool for interacting with chain",
+	Short: "🧱🝙",
 	Long:  `block is a tool for interacting with chain.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		data := args[0]
