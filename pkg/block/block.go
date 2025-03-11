@@ -114,30 +114,42 @@ func (b *Block) Serialize() (val []byte, err error) {
 	var buf bytes.Buffer
 
 	// Write Height
-	err = binary.Write(&buf, binary.LittleEndian, b.Height)
+	if err = binary.Write(&buf, binary.LittleEndian, b.Height); err != nil {
+			return val, fmt.Errorf("error writing height: %w", err)
+	}
 
 	// Write Nonce
-	err = binary.Write(&buf, binary.LittleEndian, b.Nonce)
+	if err = binary.Write(&buf, binary.LittleEndian, b.Nonce); err != nil {
+		return val, fmt.Errorf("error writing nonce: %w", err)
+	}
 
 	// Write Timestamp
-	err = binary.Write(&buf, binary.LittleEndian, b.Timestamp)
+	if err = binary.Write(&buf, binary.LittleEndian, b.Timestamp); err != nil {
+		return val, fmt.Errorf("error writing timestamp: %w", err)
+	}
 
 	// Write Transactions
 	txBytes := []byte(b.Transactions)
 	txLen := uint32(len(txBytes))
-	err = binary.Write(&buf, binary.LittleEndian, txLen)
+	if err = binary.Write(&buf, binary.LittleEndian, txLen); err != nil {
+		return val, fmt.Errorf("error getting length of transaction string: %w", err)
+	}
 	buf.Write(txBytes)
 
 	// Write Hash
 	hashBytes := []byte(b.Hash)
 	hashLen := uint32(len(hashBytes))
-	err = binary.Write(&buf, binary.LittleEndian, hashLen)
+	if err = binary.Write(&buf, binary.LittleEndian, hashLen); err != nil {
+		return val, fmt.Errorf("eerror getting length of hash string: %w", err)
+	}
 	buf.Write(hashBytes)
 
 	// Write Previous Block Hash
 	prevHashBytes := []byte(b.PrevBlockHash)
 	prevHashLen := uint32(len(prevHashBytes))
-	err = binary.Write(&buf, binary.LittleEndian, prevHashLen)
+	if err = binary.Write(&buf, binary.LittleEndian, prevHashLen); err != nil {
+		return val, fmt.Errorf("eerror getting length of prevBlockHash string: %w", err)
+	}
 	buf.Write(prevHashBytes)
 
 	val = buf.Bytes()
@@ -301,19 +313,4 @@ func (b *Block) validate() (valid bool) {
 //   - error: the error that occurred while serialization.
 func (b *Block) prepareHashData() ([]byte, error) {
 	return b.Serialize()
-}
-
-// clone creates a copy of the current block
-//
-// Returns
-//   - blocks: a pointer copy of the current block
-func (b *Block) clone() *Block {
-	return &Block{
-		Timestamp:     b.Timestamp,
-		Transactions:  b.Transactions,
-		PrevBlockHash: b.PrevBlockHash,
-		Hash:          b.Hash,
-		Height:        HashDifficulty,
-		Nonce:         b.Nonce,
-	}
 }

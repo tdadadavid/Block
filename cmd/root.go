@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var CommandToHandlers =  map[string]func(){}
+var CommandToHandlers = map[string]func(){}
 
 var (
 	logger *slog.Logger
