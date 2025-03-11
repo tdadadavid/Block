@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"github.com/tdadadavid/block/cmd"
 )
 
-
-
 func main() {
-	fmt.Println("Blockchain in Go")
+	cmd.Execute()
 }
