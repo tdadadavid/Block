@@ -13,7 +13,7 @@ var addBlockCmd = &cobra.Command{
 	Aliases: []string{"addition"},
 	Short:   "Use to add a new block",
 	Long:    "What is a chain without a block 🧱",
-	Run:     func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, args []string) {
 		input := strings.ToLower(args[0]) // everything on the chain is converted to small letters
 		if input == "" {
 			logger.Error("empty or wrong input passed", slog.String("expected", "<anything>"), slog.String("got", ""))

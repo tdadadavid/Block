@@ -140,4 +140,3 @@ func (c *Chain) UpdateLast(b block.Block) (err error) {
 	})
 	return err
 }
-
