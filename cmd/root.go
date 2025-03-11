@@ -2,14 +2,22 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"log/slog"
 	"os"
+
+	"github.com/spf13/cobra"
+)
+
+var CommandToHandlers =  map[string]func(){}
+
+var (
+	logger *slog.Logger
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "block",
-	Short: "block is a tool for interacting with blockchain",
-	Long:  `block is a tool for interacting with blockchain.`,
+	Short: "block is a tool for interacting with chain",
+	Long:  `block is a tool for interacting with chain.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		data := args[0]
 		fmt.Println(data)
@@ -25,13 +33,12 @@ func Execute() {
 }
 
 func init() {
-	addBlockCmd.PersistentFlags().String("block", "", "Add block to the blockchain")
 	printCmd.PersistentFlags().String("chain", "", "Print the chain information")
-	printCmd.PersistentFlags().String("block", "", "Print block information")
 
-	// add commands
-	rootCmd.AddCommand(addBlockCmd)
-	rootCmd.AddCommand(printCmd)
+	// initialize logger for project
+	InitLogger()
 }
 
-//TODO: improve the flag system
+func InitLogger() {
+	logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+}

@@ -1,4 +1,4 @@
-package blockchain
+package chain
 
 import "github.com/tdadadavid/block/pkg/block"
 
@@ -8,25 +8,25 @@ type Iterator interface {
 	HasNext() bool
 }
 
-// BlockChainIterator Iterator used for moving through the chain it implements the Iterator interface
-type BlockChainIterator struct {
+// ChainIterator Iterator used for moving through the chain it implements the Iterator interface
+type ChainIterator struct {
 	// currentHash holds the hash of the currentBlock we are on in the chain
 	currentHash string
 
-	// blockchain holds a pointer to the Blockchain itself
-	blockchain *Blockchain
+	// blockchain holds a pointer to the Chain itself
+	blockchain *Chain
 }
 
-// HasNext control the iteration over the blockchain
+// HasNext control the iteration over the chain
 //
 // Process:
-//   - if the blockchain is nil no need to iterate stop by returning false
+//   - if the chain is nil no need to iterate stop by returning false
 //   - if the currentHash is empty "" then we know we've reached the end of the chain
 //   - we check if the currentHash points to a valid block, if it does we continue iteration else stop
 //
 // Returns:
 //   - bool: either true or false to signify if the iteration should continue
-func (it *BlockChainIterator) HasNext() bool {
+func (it *ChainIterator) HasNext() bool {
 	// if the chain is empty or the current hash is empty stop iteration
 	if it.blockchain == nil || it.currentHash == "" {
 		return false
@@ -50,7 +50,7 @@ func (it *BlockChainIterator) HasNext() bool {
 //
 // Returns:
 //   - currBlock: The pointer to the current block from the database
-func (it *BlockChainIterator) Next() (curBlock *block.Block) {
+func (it *ChainIterator) Next() (curBlock *block.Block) {
 	// check if there is a next block on the chain
 	if it.HasNext() {
 		it.currentHash = ""

@@ -18,30 +18,30 @@ var (
 // Block a representation of blocks on chain
 type Block struct {
 	// Timestamp captures the time the 'Block' was created
-	Timestamp int64
+	Timestamp int64 `json:"timestamp"`
 
 	// Transactions
-	Transactions string
+	Transactions string `json:"transactions"`
 
 	// PrevBlockHash is the Hash of the previous block
-	PrevBlockHash string
+	PrevBlockHash string `json:"previous_block_hash"`
 
 	// Hash captures the Hash of the current block
-	Hash string
+	Hash string `json:"hash"`
 
-	// Height is the history of blockchain
-	Height int32
+	// Height is the history of chain
+	Height int32 `json:"height"`
 
-	// Nonce this is used in blockchain mining
-	Nonce int32
+	// Nonce this is used in chain mining
+	Nonce int32 `json:"nonce"`
 
-	logger slog.Logger
+	logger *slog.Logger
 }
 
-// NewBlock creates & returns a new block on the blockchain
+// NewBlock creates & returns a new block on the chain
 //
 // Parameters:
-//   - data(string): The transactional data on the blockchain
+//   - data(string): The transactional data on the chain
 //   - prevBlkHash(string): The hash of the previous block
 //   - height(int32): The height of the block
 //
@@ -60,6 +60,7 @@ func NewBlock(data string, prevBlkHash string, height int32) (block Block) {
 		Hash:          hex.EncodeToString(sha256.New().Sum([]byte(data))),
 		Height:        height,
 		Nonce:         0,
+		logger:        &slog.Logger{},
 	}
 	block.runProofOfWork()
 	return block
@@ -288,7 +289,7 @@ func (b *Block) validate() (valid bool) {
 	zeroString := strings.Repeat("0", int(HashDifficulty))
 
 	// compare the values to see if its valid
-	valid = zeroString == hashPrefix // NOTE:
+	valid = zeroString == hashPrefix
 
 	return valid
 }

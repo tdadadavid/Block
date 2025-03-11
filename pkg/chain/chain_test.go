@@ -1,4 +1,4 @@
-package blockchain
+package chain
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -37,6 +37,7 @@ func TestBlockchain_AddBlock(t *testing.T) {
 			assert.Equal(t, "", iter.currentHash)
 		} else {
 			assert.NotEmpty(t, it.GetTransaction())
+			assert.Equal(t, iter.currentHash, it.GetTransaction())
 		}
 	}
 }
