@@ -2,7 +2,6 @@ package chain
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/dgraph-io/badger/v4"
@@ -98,14 +97,36 @@ func (c *Chain) AddBlock(data string) {
 	c.currentHash = newBlock.GetHash()
 }
 
-// PrettyPrint this formats the chain into a readable json format for easy debugging
-func (c *Chain) PrettyPrint() {
-	json, err := json.MarshalIndent(c, "Blockchain ", "")
-	if err != nil {
-		fmt.Printf("error marshalling block: %s", err)
+// GetAllBlocks retrieves all blocks from the chain store
+//
+// Process:
+// 	- It first creates an iterator object for the loop process
+//  - while there is a block on the chain it gets it and appends it to a slice of blocks
+//  - Reverse the blocks to get them in chronological order (oldest first)
+//
+// Returns:
+// 	- `blocks []*block.Block`: a slice of blocks for this chain
+//  - `err error`: an error object
+func (c *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
+	iter := c.iter()
+
+	for iter.HasNext(c.chainCtx) {
+		block := iter.Next(c.chainCtx)
+		if block == nil {
+			err = fmt.Errorf("failed to get block %s", c.currentHash)
+			return blocks, err
+		}
+		blocks = append(blocks, block)
 	}
-	fmt.Println(string(json))
+
+	// Reverse the blocks to get them in chronological order (oldest first)
+	for i, j := 0, len(blocks)-1; i < j; i, j = i+1, j-1 {
+		blocks[i], blocks[j] = blocks[j], blocks[i]
+	}
+	
+	return blocks, err
 }
+
 
 // iter add a block to the chain
 //
@@ -121,7 +142,4 @@ func (c *Chain) iter() ChainIterator {
 	}
 }
 
-// Utility functions
-func (c *Chain) FindLast() (block.Block, error) {
-	return c.store.FindLast(c.chainCtx)
-}
+

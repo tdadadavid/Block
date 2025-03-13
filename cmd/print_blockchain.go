@@ -14,27 +14,33 @@ var printCmd = &cobra.Command{
 	Short:   "View the chain",
 	Long:    "🥽 into the chain",
 	Example: "block print <chain|block>",
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(3),
 	Run: func(cmd *cobra.Command, args []string) {
 		input := strings.ToLower(args[0])
+		value := ""
+		if len(args) > 1 {
+			value = strings.ToLower(args[1])
+		}
 
 		if input == "" {
 			logger.Error("empty or wrong input passed", slog.String("got", input))
 			os.Exit(100)
 		}
 
-		if CommandToHandlers[input] == nil {
-			fmt.Println("Not implemented")
+		command, ok := CommandToHandlers[input]
+		if !ok {
+			fmt.Println("not implemented")
+			return
 		}
-
-		command := CommandToHandlers[input]
-		command()
+		command(value)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(printCmd)
 
+	CommandToHandlers["b"] = printBlock
 	CommandToHandlers["bc"] = printChain
 	CommandToHandlers["last"] = printLastBlockOnChain
+
 }
