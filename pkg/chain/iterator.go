@@ -33,7 +33,7 @@ func (it *ChainIterator) HasNext() bool {
 	}
 
 	// check if the block of the currentHash exists if it does the continue iteration else stop.
-	_, err := it.blockchain.findByHash(it.currentHash)
+	_, err := it.blockchain.store.FindByHash(it.currentHash)
 	if err != nil {
 		return false
 	}
@@ -58,7 +58,7 @@ func (it *ChainIterator) Next() (curBlock *block.Block) {
 	}
 
 	// find the current block using the current hash
-	b, err := it.blockchain.findByHash(it.currentHash)
+	b, err := it.blockchain.store.FindByHash(it.currentHash)
 	if err != nil {
 		it.currentHash = ""
 		return curBlock

@@ -10,7 +10,7 @@ import (
 
 type Chain struct {
 	// store In memory database that stores the chain's data
-	store *badger.DB
+	store *BlockStore
 
 	// currentHash the current hash for this chain
 	currentHash string
@@ -40,7 +40,8 @@ func New(storagePath string) (bc Chain) {
 		panic(fmt.Errorf("failed to create chain %v", err))
 	}
 
-	bc = Chain{store: store}
+
+	bc = Chain{store: &BlockStore{store: store}}
 	bc.currentHash = bc.getLastHash()
 
 	return bc
@@ -54,7 +55,7 @@ func New(storagePath string) (bc Chain) {
 // Returns:
 //   - The hash of the block at "LAST" position
 func (c *Chain) getLastHash() string {
-	b := c.findLastOrCreate()
+	b := c.store.FindLastOrCreate()
 	return b.GetHash()
 }
 
@@ -70,20 +71,20 @@ func (c *Chain) getLastHash() string {
 //   - Set the Chains hash to the new block's hash
 func (c *Chain) AddBlock(data string) {
 	// get previous block
-	prevBlock, err := c.FindLast()
+	prevBlock, err := c.store.FindLast()
 	if err != nil {
 		fmt.Printf("error while finding previous block: %s\n", err.Error())
 	}
 
 	// creates new block with previous block hash
 	newBlock := block.New(data, prevBlock.GetHash(), block.HashDifficulty) // create new block
-	err = c.Create(newBlock.GetHash(), newBlock)
+	err = c.store.Create(newBlock.GetHash(), newBlock)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
 	}
 
 	// update 'LAST' key in chain point to new block.
-	err = c.UpdateLast(newBlock)
+	err = c.store.UpdateLast(newBlock)
 	if err != nil {
 		fmt.Println("error while updating last block")
 	}
@@ -113,4 +114,9 @@ func (c *Chain) iter() ChainIterator {
 		currentHash: c.currentHash,
 		blockchain:  c,
 	}
+}
+
+// Utility functions
+func (c *Chain) FindLast() (block.Block, error) {
+	return c.store.FindLast()
 }
