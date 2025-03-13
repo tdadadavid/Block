@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/tdadadavid/block/pkg/chain"
@@ -9,7 +10,7 @@ import (
 var blockChain chain.Chain
 
 func init() {
-	blockChain = chain.New("/data/blocks")
+	blockChain = chain.New(context.Background(), "/data/blocks")
 }
 
 func printChain() {

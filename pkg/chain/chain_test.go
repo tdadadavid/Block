@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -19,7 +20,7 @@ func cleanUp(t *testing.T) {
 func TestBlockchain_New(t *testing.T) {
 	defer cleanUp(t)
 
-	bc := New("./../../data/blocks")
+	bc := New(context.Background(), "./../../data/blocks")
 	assert.NotNil(t, bc)
 }
 
@@ -27,7 +28,7 @@ func TestBlockchain_AddBlock(t *testing.T) {
 	defer cleanUp(t)
 
 	// create blockchain
-	bc := New("./../../data/blocks")
+	bc := New(context.Background(), "./../../data/blocks")
 	assert.NotNil(t, bc)
 
 	// get prevHash (genesis block)
@@ -37,9 +38,11 @@ func TestBlockchain_AddBlock(t *testing.T) {
 	// add block
 	bc.AddBlock("test_data")
 
+	ctx := context.Background()
+	
 	iter := bc.iter()
-	for iter.HasNext() {
-		it := iter.Next()
+	for iter.HasNext(ctx) {
+		it := iter.Next(ctx)
 		if it == nil {
 			assert.Equal(t, "", iter.currentHash)
 		} else {
