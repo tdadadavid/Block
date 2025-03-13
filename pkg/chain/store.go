@@ -11,11 +11,10 @@ import (
 // LastKey tracks the block at "LAST" position
 var LastKey = []byte("LAST")
 
-//go run go.uber.org/mock/mockgen@v0.5.0 -destination=pkg/mocks/market-data/pkg/storage/mocks.go github.com/subdialia/market-data/pkg/storage CacheClient,ObjectClient,GraphClient,TDOWriter,TDOReader
 type Storage interface {
 	FindLastOrCreate(ctx context.Context) block.Block
 	Create(ctx context.Context, key string, b block.Block) error
-	FindByHash(ctx context.Context, hash string) block.Block
+	FindByHash(ctx context.Context, hash string) (block.Block, error)
 	FindLast(ctx context.Context) (block.Block, error)
 	UpdateLast(ctx context.Context, b block.Block) error
 }
@@ -24,8 +23,7 @@ type BlockStore struct {
 	store *badger.DB
 }
 
-
-// findLastOrCreate used to get the last block in the chain or creates a new genesis block
+// FindLastOrCreate used to get the last block in the chain or creates a new genesis block
 //
 // Process:
 //   - Queries storage to get the block at the "LAST" position
@@ -83,7 +81,7 @@ func (bs *BlockStore) Create(ctx context.Context, key string, b block.Block) err
 	return err
 }
 
-// findByHash finds a block by the given hash
+// FindByHash finds a block by the given hash
 //
 // Parameters:
 //   - hash(string): The hash of the block that we want to retrieve
@@ -111,7 +109,7 @@ func (bs *BlockStore) FindByHash(ctx context.Context, hash string) (b block.Bloc
 	return b, err
 }
 
-// findByHash finds a block by the given hash
+// FindLast finds a block by the given hash
 //
 // Process:
 //   - Retrieves the block in bytes if it exists, else returns error
