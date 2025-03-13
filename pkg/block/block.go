@@ -66,6 +66,7 @@ func New(data string, prevBlkHash string, height int32) (block Block) {
 	return block
 }
 
+
 // NewGenesisBlock creates the first block on the chain known as the 'GENESIS_BLOCK'
 //
 // Note:
@@ -99,6 +100,13 @@ func (b *Block) GetHash() string {
 // GetPrevBlockHash returns the hash of the previous block
 func (b *Block) GetPrevBlockHash() string {
 	return b.PrevBlockHash
+}
+
+// String returns a string representation of a Block
+// This implements the Stringer interface to enable us printing like this fmt.Println(&block)
+func (b *Block) String() string {
+	return fmt.Sprintf("{Hash: %q, PrevBlockHash: %q, Height: %d, Timestamp: %d, Transactions: %q, Nonce: %d}",
+		b.Hash, b.PrevBlockHash, b.Height, b.Timestamp, b.Transactions, b.Nonce)
 }
 
 // Serialize converts the Block in binary data stored in the storage

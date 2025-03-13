@@ -121,7 +121,4 @@ func (c *Chain) iter() ChainIterator {
 	}
 }
 
-// Utility functions
-func (c *Chain) FindLast() (block.Block, error) {
-	return c.store.FindLast(c.chainCtx)
-}
+
