@@ -8,9 +8,7 @@ import (
 	"github.com/tdadadavid/block/pkg/block"
 )
 
-// Utility methods for chain & cli
 
-// Utility functions
 func (c *Chain) FindLast() (block.Block, error) {
 	return c.store.FindLast(c.chainCtx)
 }
@@ -48,29 +46,4 @@ func (c *Chain) PrintChain() {
 	builder.WriteString("}")
 	
 	fmt.Println(builder.String())
-}
-
-
-// GetAllBlocks retrieves all blocks from the chain store
-func (chain *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
-	blockHash := chain.currentHash
-
-	iter := chain.iter()
-
-	for iter.HasNext(chain.chainCtx) {
-		block := iter.Next(chain.chainCtx)
-		if block == nil {
-			err = fmt.Errorf("failed to get block %s: %v", blockHash, block)
-			return blocks, err
-		}
-		blocks = append(blocks, block)
-		blockHash = block.PrevBlockHash
-	}
-
-	// Reverse the blocks to get them in chronological order (oldest first)
-	for i, j := 0, len(blocks)-1; i < j; i, j = i+1, j-1 {
-		blocks[i], blocks[j] = blocks[j], blocks[i]
-	}
-	
-	return blocks, err
 }
