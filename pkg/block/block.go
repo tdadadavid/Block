@@ -51,7 +51,7 @@ type Block struct {
 //
 // Returns:
 //   - block: The block that just got created
-func NewBlock(data string, prevBlkHash string, height int32) (block Block) {
+func New(data string, prevBlkHash string, height int32) (block Block) {
 	timestamp := time.Now()
 	block = Block{
 		Timestamp:     timestamp.Unix(),

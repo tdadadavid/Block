@@ -76,7 +76,7 @@ func (c *Chain) AddBlock(data string) {
 	}
 
 	// creates new block with previous block hash
-	newBlock := block.NewBlock(data, prevBlock.GetHash(), block.HashDifficulty) // create new block
+	newBlock := block.New(data, prevBlock.GetHash(), block.HashDifficulty) // create new block
 	err = c.Create(newBlock.GetHash(), newBlock)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
