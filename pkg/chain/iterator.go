@@ -1,11 +1,15 @@
 package chain
 
-import "github.com/tdadadavid/block/pkg/block"
+import (
+	"context"
+
+	"github.com/tdadadavid/block/pkg/block"
+)
 
 // Iterator captures the building block of any iterable
 type Iterator interface {
-	Next() *block.Block
-	HasNext() bool
+	Next(ctx context.Context) *block.Block
+	HasNext(ctx context.Context) bool
 }
 
 // ChainIterator Iterator used for moving through the chain it implements the Iterator interface
@@ -26,14 +30,14 @@ type ChainIterator struct {
 //
 // Returns:
 //   - bool: either true or false to signify if the iteration should continue
-func (it *ChainIterator) HasNext() bool {
+func (it *ChainIterator) HasNext(ctx context.Context) bool {
 	// if the chain is empty or the current hash is empty stop iteration
 	if it.blockchain == nil || it.currentHash == "" {
 		return false
 	}
 
 	// check if the block of the currentHash exists if it does the continue iteration else stop.
-	_, err := it.blockchain.store.FindByHash(it.currentHash)
+	_, err := it.blockchain.store.FindByHash(ctx, it.currentHash)
 	if err != nil {
 		return false
 	}
@@ -50,15 +54,15 @@ func (it *ChainIterator) HasNext() bool {
 //
 // Returns:
 //   - currBlock: The pointer to the current block from the database
-func (it *ChainIterator) Next() (curBlock *block.Block) {
+func (it *ChainIterator) Next(ctx context.Context) (curBlock *block.Block) {
 	// check if there is a next block on the chain
-	if !it.HasNext() {
+	if !it.HasNext(ctx) {
 		it.currentHash = ""
 		return curBlock
 	}
 
 	// find the current block using the current hash
-	b, err := it.blockchain.store.FindByHash(it.currentHash)
+	b, err := it.blockchain.store.FindByHash(ctx, it.currentHash)
 	if err != nil {
 		it.currentHash = ""
 		return curBlock

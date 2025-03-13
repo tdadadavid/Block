@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -10,10 +11,12 @@ import (
 
 type Chain struct {
 	// store In memory database that stores the chain's data
-	store *BlockStore
+	store *ChainStore
 
 	// currentHash the current hash for this chain
 	currentHash string
+
+	chainCtx context.Context
 }
 
 // New creates a new chain
@@ -31,7 +34,7 @@ type Chain struct {
 //
 // Returns:
 //   - bc(Chain): The newly created chain
-func New(storagePath string) (bc Chain) {
+func New(ctx context.Context, storagePath string) (bc Chain) {
 	// Set the in-memory store for the chain and disable storage logs
 	options := badger.DefaultOptions("./../../data/blocks").WithLogger(nil)
 
@@ -40,8 +43,10 @@ func New(storagePath string) (bc Chain) {
 		panic(fmt.Errorf("failed to create chain %v", err))
 	}
 
-
-	bc = Chain{store: &BlockStore{store: store}}
+	bc = Chain{
+		chainCtx: ctx,
+		store:    &ChainStore{store: store},
+	}
 	bc.currentHash = bc.getLastHash()
 
 	return bc
@@ -55,7 +60,7 @@ func New(storagePath string) (bc Chain) {
 // Returns:
 //   - The hash of the block at "LAST" position
 func (c *Chain) getLastHash() string {
-	b := c.store.FindLastOrCreate()
+	b := c.store.FindLastOrCreate(c.chainCtx)
 	return b.GetHash()
 }
 
@@ -71,20 +76,20 @@ func (c *Chain) getLastHash() string {
 //   - Set the Chains hash to the new block's hash
 func (c *Chain) AddBlock(data string) {
 	// get previous block
-	prevBlock, err := c.store.FindLast()
+	prevBlock, err := c.store.FindLast(c.chainCtx)
 	if err != nil {
 		fmt.Printf("error while finding previous block: %s\n", err.Error())
 	}
 
 	// creates new block with previous block hash
 	newBlock := block.New(data, prevBlock.GetHash(), block.HashDifficulty) // create new block
-	err = c.store.Create(newBlock.GetHash(), newBlock)
+	err = c.store.Create(c.chainCtx, newBlock.GetHash(), newBlock)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
 	}
 
 	// update 'LAST' key in chain point to new block.
-	err = c.store.UpdateLast(newBlock)
+	err = c.store.UpdateLast(c.chainCtx, newBlock)
 	if err != nil {
 		fmt.Println("error while updating last block")
 	}
@@ -118,5 +123,5 @@ func (c *Chain) iter() ChainIterator {
 
 // Utility functions
 func (c *Chain) FindLast() (block.Block, error) {
-	return c.store.FindLast()
+	return c.store.FindLast(c.chainCtx)
 }
