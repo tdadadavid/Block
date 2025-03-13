@@ -11,7 +11,7 @@ import (
 
 type Chain struct {
 	// store In memory database that stores the chain's data
-	store *BlockStore
+	store *ChainStore
 
 	// currentHash the current hash for this chain
 	currentHash string
@@ -34,7 +34,7 @@ type Chain struct {
 //
 // Returns:
 //   - bc(Chain): The newly created chain
-func New(ctx context.Context,storagePath string) (bc Chain) {
+func New(ctx context.Context, storagePath string) (bc Chain) {
 	// Set the in-memory store for the chain and disable storage logs
 	options := badger.DefaultOptions("./../../data/blocks").WithLogger(nil)
 
@@ -43,10 +43,9 @@ func New(ctx context.Context,storagePath string) (bc Chain) {
 		panic(fmt.Errorf("failed to create chain %v", err))
 	}
 
-
 	bc = Chain{
 		chainCtx: ctx,
-		store: &BlockStore{store: store},
+		store:    &ChainStore{store: store},
 	}
 	bc.currentHash = bc.getLastHash()
 

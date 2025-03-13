@@ -8,8 +8,8 @@ import (
 
 // Iterator captures the building block of any iterable
 type Iterator interface {
-	Next() *block.Block
-	HasNext() bool
+	Next(ctx context.Context) *block.Block
+	HasNext(ctx context.Context) bool
 }
 
 // ChainIterator Iterator used for moving through the chain it implements the Iterator interface
