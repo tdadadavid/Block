@@ -2,6 +2,7 @@ package block
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tdadadavid/block/pkg/transactions"
@@ -13,11 +14,12 @@ func TestBlock_New(t *testing.T) {
 	assert.NotNil(t, b)
 	assert.Equal(t, b.GetHeight(), int32(4))
 	assert.NotNil(t, b.GetTimestamp())
+	assert.NotNil(t, b.GetHash())
+	assert.Equal(t, b.GetTimestamp(), time.Now().Unix())
 	assert.Empty(t, b.GetPrevBlockHash())
-
-	assert.Equal(t, b.GetHash(), b.GetHash())
-	assert.Equal(t, b.GetTransaction(), b.GetTransaction())
-	assert.Equal(t, b.GetPrevBlockHash(), b.GetPrevBlockHash())
+	assert.NotNil(t, b.GetPrevBlockHash())
+	assert.NotNil(t, b.GetTransaction())
+	assert.Len(t, b.GetTransaction(), 1)
 }
 
 func TestBlock_Serialize_Deserialize(t *testing.T) {
@@ -41,6 +43,7 @@ func TestBlock_Serialize_Deserialize(t *testing.T) {
 	b2 := Block{}
 	err = b2.Deserialize(bytes)
 	assert.NoError(t, err)
+	// we cannot compare equality by using assert.Equal() because of the logger in the Block struct
 
 	assert.Equal(t, b.GetHash(), b2.GetHash())
 	assert.Equal(t, b.GetHeight(), b2.GetHeight())
