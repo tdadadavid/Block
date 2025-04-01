@@ -3,9 +3,13 @@ package chain
 import (
 	"context"
 	"fmt"
+	"log/slog"
+
+	"github.com/tdadadavid/block/pkg/block"
+	"github.com/tdadadavid/block/pkg/toolkit"
+	"github.com/tdadadavid/block/pkg/transactions"
 
 	"github.com/dgraph-io/badger/v4"
-	"github.com/tdadadavid/block/pkg/block"
 )
 
 type Chain struct {
@@ -16,12 +20,14 @@ type Chain struct {
 	currentHash string
 
 	chainCtx context.Context
+
+	logger *slog.Logger
 }
 
-// New creates a new chain
+// New instantiates a new chain from the store
 //
 // Parameters:
-//   - storagePath(string): The path to the in-memory storage
+//   - `storagePath(string)`: The path to the in-memory storage
 //
 // Process:
 //   - Opens or creates the storage location
@@ -30,12 +36,13 @@ type Chain struct {
 //
 // Notes:
 //   - If the store fails to open or create this function panics
+//   - This is called for chains that already exists
 //
 // Returns:
-//   - bc(Chain): The newly created chain
+//   - `bc(Chain)`: The newly created chain
 func New(ctx context.Context, storagePath string) (bc Chain) {
 	// Set the in-memory store for the chain and disable storage logs
-	options := badger.DefaultOptions("./../../data/blocks").WithLogger(nil)
+	options := badger.DefaultOptions(storagePath).WithLogger(nil)
 
 	store, err := badger.Open(options)
 	if err != nil {
@@ -45,8 +52,69 @@ func New(ctx context.Context, storagePath string) (bc Chain) {
 	bc = Chain{
 		chainCtx: ctx,
 		store:    &ChainStore{store: store},
+		logger:   slog.Default(),
 	}
-	bc.currentHash = bc.getLastHash()
+
+	// get the last block's hash
+	hash, err := bc.getLastHash()
+	if err != nil {
+		panic(fmt.Errorf("failed to created chain %s", err))
+	}
+
+	bc.currentHash = hash
+
+	return bc
+}
+
+// NewChain creates a new chain containing the coinbase transaction
+//
+// Parameters
+//   - `ctx context.Context`: The context that control execution
+//   - `name string`: The name of the blockchain. It is used when creating the store
+//   - `address string`: The address of the blockchain
+//
+// Process
+//   - The function tries to create a store if it fails then it panics
+//     if it doesn't then it creates a coinbase transaction using the address & the genesis block
+//     given and the coinbase data which is stored in the blockchain and in the 'LAST' position in the block
+//
+// Returns
+//   - `bc Chain`: The newly created chain
+func NewChain(ctx context.Context, name, address string) (bc Chain) {
+	options := badger.DefaultOptions(fmt.Sprintf("./data/%s/blocks", name)).WithLogger(nil)
+
+	store, err := badger.Open(options)
+	if err != nil {
+		panic(fmt.Errorf("failed to create chain %v", err))
+	}
+
+	// create coinbase transaction & genesis block
+	cbtx := transactions.NewCoinbase(address, transactions.COINBASE_DATA)
+	genesis := block.NewGenesisBlock(*cbtx)
+
+	// create the chain
+	bc = Chain{
+		chainCtx: ctx,
+		store:    &ChainStore{store: store},
+		logger:   slog.Default(),
+	}
+
+	// store the genesis block in the store and in the 'LAST' position
+	err = bc.store.Create(ctx, genesis.GetHash(), genesis)
+	if err != nil {
+		fmt.Printf("error while creating new block %v", err)
+		return
+	}
+
+	// update 'LAST' key in chain point to genesis block.
+	err = bc.store.UpdateLast(bc.chainCtx, genesis)
+	if err != nil {
+		fmt.Println("error while updating last block")
+		return
+	}
+
+	// update the chain with the last hash
+	bc.currentHash = genesis.GetHash()
 
 	return bc
 }
@@ -54,13 +122,19 @@ func New(ctx context.Context, storagePath string) (bc Chain) {
 // getLastHash returns the hash of block as "LAST" position
 //
 // Process:
-//   - finds block at last position or creates genesis block
+//   - finds block at last position
 //
 // Returns:
 //   - The hash of the block at "LAST" position
-func (c *Chain) getLastHash() string {
-	b := c.store.FindLastOrCreate(c.chainCtx)
-	return b.GetHash()
+func (c *Chain) getLastHash() (val string, err error) {
+	b, err := c.store.FindLast(c.chainCtx)
+	if err != nil {
+		c.logger.Error("no block in LAST position", slog.Any("error", err))
+		err = fmt.Errorf("error retrieving LAST block %s", err)
+		return val, err
+	}
+	val = b.GetHash()
+	return val, err
 }
 
 // AddBlock add a block to the chain
@@ -73,11 +147,12 @@ func (c *Chain) getLastHash() string {
 //   - Creates new block with given data and previous block's hash
 //   - Updates the "LAST" key in the storage with the newly created block
 //   - Set the Chains hash to the new block's hash
-func (c *Chain) AddBlock(data string) {
+func (c *Chain) AddBlock(data transactions.Transaction) {
 	// get previous block
 	prevBlock, err := c.store.FindLast(c.chainCtx)
-	if err != nil {
-		fmt.Printf("error while finding previous block: %s\n", err.Error())
+	if err != nil || toolkit.Ref(prevBlock) == nil {
+		fmt.Printf("error while finding previous block: %s\n", err)
+		return
 	}
 
 	// creates new block with previous block hash
@@ -85,12 +160,14 @@ func (c *Chain) AddBlock(data string) {
 	err = c.store.Create(c.chainCtx, newBlock.GetHash(), newBlock)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
+		return
 	}
 
 	// update 'LAST' key in chain point to new block.
 	err = c.store.UpdateLast(c.chainCtx, newBlock)
 	if err != nil {
 		fmt.Println("error while updating last block")
+		return
 	}
 
 	// update the chain current-hash
@@ -100,13 +177,13 @@ func (c *Chain) AddBlock(data string) {
 // GetAllBlocks retrieves all blocks from the chain store
 //
 // Process:
-// 	- It first creates an iterator object for the loop process
-//  - while there is a block on the chain it gets it and appends it to a slice of blocks
-//  - Reverse the blocks to get them in chronological order (oldest first)
+//   - It first creates an iterator object for the loop process
+//   - while there is a block on the chain it gets it and appends it to a slice of blocks
+//   - Reverse the blocks to get them in chronological order (oldest first)
 //
 // Returns:
-// 	- `blocks []*block.Block`: a slice of blocks for this chain
-//  - `err error`: an error object
+//   - `blocks []*block.Block`: a slice of blocks for this chain
+//   - `err error`: an error object
 func (c *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
 	iter := c.iter()
 
@@ -123,10 +200,9 @@ func (c *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
 	for i, j := 0, len(blocks)-1; i < j; i, j = i+1, j-1 {
 		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
-	
+
 	return blocks, err
 }
-
 
 // iter add a block to the chain
 //
@@ -141,5 +217,3 @@ func (c *Chain) iter() ChainIterator {
 		blockchain:  c,
 	}
 }
-
-
