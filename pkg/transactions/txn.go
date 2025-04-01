@@ -10,31 +10,58 @@ import (
 	"github.com/tdadadavid/block/pkg/toolkit"
 )
 
+var COINBASE_DATA = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks"
+
+// Transaction represents the shape of transactions that occurs on the chain
 type Transaction struct {
-	id string
-	inputs []TxnInput
-	outputs []TxnOutput
+	Id      string      `json:"id"`
+	Inputs  []TxnInput  `json:"vin"`
+	Outputs []TxnOutput `json:"vout"`
 }
 
+// GetId returns transaction id
+func (t *Transaction) GetId() string {
+	return t.Id
+}
 
-func (t *Transaction) NewCoinbase(data, to string) (txn *Transaction) {
+// GetInputs returns transaction inputs
+func (t *Transaction) GetInputs() []TxnInput {
+	return t.Inputs
+}
+
+// GetOutputs returns transaction outputs
+func (t *Transaction) GetOutputs() []TxnOutput {
+	return t.Outputs
+}
+
+// NewCoinbase creates the first coin on the chain
+//
+// Parameters
+//   - `data string`: The input to the transaction
+//   - `to string`: The address where this should be //FIXME
+//
+// # Process
+//
+// Returns
+//   - `txn *Transaction`: The new coinbase transactions.
+func NewCoinbase(to, data string) (txn *Transaction) {
 	if data == "" {
 		data = fmt.Sprintf("Reward to %s", to)
 	}
 
-	txn = &Transaction {
-		id: "",
-		inputs: []TxnInput{
+	txn = &Transaction{
+		Id: "",
+		Inputs: []TxnInput{
 			{
-				txnId: "",
-				output: -1,
-				scriptSignature: data,
+				TxnId:           "",
+				Output:          -1,
+				ScriptSignature: data,
 			},
 		},
-		outputs: []TxnOutput{
+		Outputs: []TxnOutput{
 			{
-				value: 100,
-				scriptPubKey: to,
+				Value:        100,
+				ScriptPubKey: to,
 			},
 		},
 	}
@@ -45,9 +72,9 @@ func (t *Transaction) NewCoinbase(data, to string) (txn *Transaction) {
 // GenId generates id for a transaction
 //
 // Process
-// 	- Serializes the transaction
-//  - Hash it then convert it to hexadecimal string
-//  - Store hexcode in transaction id
+//   - Serializes the transaction
+//   - Hash it then convert it to hexadecimal string
+//   - Store hexcode in transaction id
 func (t *Transaction) GenId() {
 	bytez, err := t.Serialize()
 	if err != nil {
@@ -56,59 +83,93 @@ func (t *Transaction) GenId() {
 	}
 	hash := sha256.Sum256(bytez)
 	hex := hex.EncodeToString(hash[:])
-	t.id = hex
+	t.Id = hex
 }
 
+// IsCoinbase checks if the transaction is the first transaction
+//
+// Process
+//   - Check if outputs is equal to 1,the first input transaction ID is an empty string
+//     the first input output is -1
+//
+// Returns
+//   - bool: True or false informing the caller whether or not it is coinbase transaction
 func (t *Transaction) IsCoinbase() bool {
-	return len(t.outputs) == 1 && t.inputs[0].txnId == "" && t.inputs[0].output == -1
+	return len(t.Outputs) == 1 && t.Inputs[0].TxnId == "" && t.Inputs[0].Output == -1
 }
-
 
 // Serialize converts a Transaction into a byte slice
+//
+// Process
+//   - First serializes the transaction ID, then iterates through the `Output` & `Input` and serializes them
+//
+// Returns
+//   - `val []byte`: The byte value of the current transaction
+//   - `err error`: Any error that occurs during serialization
 func (t *Transaction) Serialize() (val []byte, err error) {
 	buf := new(bytes.Buffer)
 
-	// Serialize Transaction ID
-	if err = toolkit.SerializeString(buf, t.id); err != nil {
+	// Write Transaction ID
+	if err = toolkit.SerializeString(buf, t.Id); err != nil {
 		return val, err
 	}
 
 	// Serialize Inputs
-	inputCount := uint32(len(t.inputs))
+	// Write  the number of inputs in for this transaction into the buffer
+	inputCount := uint32(len(t.Inputs))
 	if err := binary.Write(buf, binary.LittleEndian, inputCount); err != nil {
 		return val, err
 	}
-	for _, input := range t.inputs {
-		if err := toolkit.SerializeString(buf, input.txnId); err != nil {
+
+	for _, input := range t.Inputs {
+		// Write transaction ID
+		if err := toolkit.SerializeString(buf, input.TxnId); err != nil {
 			return val, err
 		}
-		if err := binary.Write(buf, binary.LittleEndian, input.output); err != nil {
+
+		// Write transaction input ouput
+		if err := binary.Write(buf, binary.LittleEndian, input.Output); err != nil {
 			return val, err
 		}
-		if err := toolkit.SerializeString(buf, input.scriptSignature); err != nil {
+
+		// Write ScriptSignature
+		if err := toolkit.SerializeString(buf, input.ScriptSignature); err != nil {
 			return val, err
 		}
 	}
 
 	// Serialize Outputs
-	outputCount := uint32(len(t.outputs))
+	outputCount := uint32(len(t.Outputs))
+	// Write  the number of outputs in for this transaction into the buffer
 	if err := binary.Write(buf, binary.LittleEndian, outputCount); err != nil {
 		return val, err
 	}
-	for _, output := range t.outputs {
-		if err := binary.Write(buf, binary.LittleEndian, output.value); err != nil {
+	for _, output := range t.Outputs {
+		// Write ScriptPubKey
+		if err := toolkit.SerializeString(buf, output.ScriptPubKey); err != nil {
 			return val, err
 		}
-		if err := toolkit.SerializeString(buf, output.scriptPubKey); err != nil {
+		// Write Value
+		if err := binary.Write(buf, binary.LittleEndian, output.Value); err != nil {
 			return val, err
 		}
 	}
 
 	val = buf.Bytes()
-	return val, nil
+	return val, err
 }
 
 // Deserialize converts a byte slice back into a Transaction
+//
+// Process
+//   - First reads the transaction ID, then iterates through the `Output` & `Input` and deserilizes them
+//     into the given transaction struct
+//
+// NOTE
+//   - Something I learnt about binary serialization and deserialization is that you deserialize in the same order you serialized.
+//
+// Returns
+//   - `err error`: Any error that occurs during deserialization
 func (t *Transaction) Deserialize(data []byte) (err error) {
 	buf := bytes.NewReader(data)
 
@@ -117,14 +178,14 @@ func (t *Transaction) Deserialize(data []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	t.id = id
+	t.Id = id
 
 	// Deserialize Inputs
 	var inputCount uint32
 	if err = binary.Read(buf, binary.LittleEndian, &inputCount); err != nil {
 		return err
 	}
-	t.inputs = make([]TxnInput, inputCount)
+	t.Inputs = make([]TxnInput, inputCount)
 	for i := uint32(0); i < inputCount; i++ {
 		txnId, err := toolkit.DeserializeString(buf)
 		if err != nil {
@@ -141,27 +202,27 @@ func (t *Transaction) Deserialize(data []byte) (err error) {
 			return err
 		}
 
-		t.inputs[i] = TxnInput{txnId, output, scriptSig}
+		t.Inputs[i] = TxnInput{txnId, output, scriptSig}
 	}
 
 	// Deserialize Outputs
-	var outputCount uint32
+	var outputCount int32
 	if err := binary.Read(buf, binary.LittleEndian, &outputCount); err != nil {
 		return err
 	}
-	t.outputs = make([]TxnOutput, outputCount)
-	for i := uint32(0); i < outputCount; i++ {
-		var value int
-		if err := binary.Read(buf, binary.LittleEndian, &value); err != nil {
-			return err
-		}
-
+	t.Outputs = make([]TxnOutput, outputCount)
+	for i := int32(0); i < outputCount; i++ {
 		scriptPubKey, err := toolkit.DeserializeString(buf)
 		if err != nil {
 			return err
 		}
 
-		t.outputs[i] = TxnOutput{value, scriptPubKey}
+		var value int32
+		if err := binary.Read(buf, binary.LittleEndian, &value); err != nil {
+			return err
+		}
+
+		t.Outputs[i] = TxnOutput{int64(value), scriptPubKey}
 	}
 
 	return err
