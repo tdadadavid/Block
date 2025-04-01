@@ -2,11 +2,11 @@ package transactions
 
 // TxnInput Represents a transaction input
 type TxnInput struct {
-	txnId string
-	output int32
-	scriptSignature string
+	TxnId           string `json:"id"`
+	Output          int32  `json:"out"`
+	ScriptSignature string `json:"signature"`
 }
 
-func (to *TxnInput) canUnlockWith(data string) bool {
-	return to.scriptSignature == data
+func (to *TxnInput) CanUnlockWith(data string) bool {
+	return to.ScriptSignature == data
 }
