@@ -63,7 +63,6 @@ func TestBlock_NewGenesisBlock(t *testing.T) {
 
 	assert.NotNil(t, g)
 	assert.Equal(t, g.GetHeight(), int32(0))
-	assert.Equal(t, g.GetNonce(), int32(0))
 	assert.NotNil(t, g.GetTimestamp())
 	assert.Empty(t, g.GetPrevBlockHash())
 	assert.NotNil(t, g.GetTransaction())

@@ -98,6 +98,7 @@ func NewGenesisBlock(coinbase transactions.Transaction) (genesis Block) {
 		Height:        0,
 		Nonce:         0,
 	}
+	genesis.mine()
 	return genesis
 }
 
@@ -221,7 +222,7 @@ func (b *Block) Deserialize(data []byte) (err error) {
 
 	// Read Height
 	if err := binary.Read(buf, binary.LittleEndian, &b.Height); err != nil {
-		err =  fmt.Errorf("error reading height: %w", err)
+		err = fmt.Errorf("error reading height: %w", err)
 		return err
 	}
 
