@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var CommandToHandlers = map[string]func(string){}
 
 var (

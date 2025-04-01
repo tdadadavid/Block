@@ -6,49 +6,46 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tdadadavid/block/pkg/transactions"
 )
 
 func cleanUp(t *testing.T) {
 	t.Cleanup(func() {
-		err := os.RemoveAll("./../../data")
+		err := os.RemoveAll("./data")
 		if err != nil {
 			panic(err)
 		}
 	})
 }
 
-func TestBlockchain_New(t *testing.T) {
+func TestBlockchain_NewChain(t *testing.T) {
 	defer cleanUp(t)
 
-	bc := New(context.Background(), "./../../data/blocks")
+	bc := NewChain(context.Background(), "bitcoin", "0x0000")
 	assert.NotNil(t, bc)
 }
 
 func TestBlockchain_AddBlock(t *testing.T) {
 	defer cleanUp(t)
 
-	// create blockchain
-	bc := New(context.Background(), "./../../data/blocks")
+	// create blockchain with the coinbase (the initail coin release)
+	bc := NewChain(context.Background(), "bitcoin", "0x000")
 	assert.NotNil(t, bc)
 
-	// get prevHash (genesis block)
-	prevHash := bc.getLastHash()
+	// add block
+	bc.AddBlock(transactions.Transaction{})
+
+	// get prevHash
+	prevHash, _ := bc.getLastHash()
 	assert.NotNil(t, prevHash)
 
-	// add block
-	bc.AddBlock("test_data")
-
 	ctx := context.Background()
-	
+
 	iter := bc.iter()
 	for iter.HasNext(ctx) {
+		assert.NotEmpty(t, iter.currentHash) // as long as there is a block on the chain, there will always be a `currentHash`
+
 		it := iter.Next(ctx)
-		if it == nil {
-			assert.Equal(t, "", iter.currentHash)
-		} else {
-			assert.NotEmpty(t, it.GetTransaction())
-			// it the iteration moves backwards towards the genesis block
-			assert.Equal(t, iter.currentHash, prevHash)
-		}
+		assert.NotEmpty(t, it.GetTransaction())
 	}
 }

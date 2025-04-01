@@ -5,10 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
+
+	"github.com/tdadadavid/block/pkg/toolkit"
+	"github.com/tdadadavid/block/pkg/transactions"
 )
 
 var (
@@ -21,10 +26,10 @@ type Block struct {
 	Timestamp int64 `json:"timestamp"`
 
 	// Transactions
-	Transactions string `json:"transactions"`
+	Transactions []transactions.Transaction `json:"txns"`
 
 	// PrevBlockHash is the Hash of the previous block
-	PrevBlockHash string `json:"previous_block_hash"`
+	PrevBlockHash string `json:"pbh"`
 
 	// Hash captures the Hash of the current block
 	Hash string `json:"hash"`
@@ -38,7 +43,7 @@ type Block struct {
 	logger *slog.Logger
 }
 
-// NewBlock creates & returns a new block on the chain
+// New creates & returns a new block on the chain
 //
 // Parameters:
 //   - data(string): The transactional data on the chain
@@ -47,48 +52,58 @@ type Block struct {
 //
 // Process:
 //   - Creates the block with the given parameters and the current time in milliseconds
+//   - It deserializes the transaction and hashes it, then converts to hexadecimal
 //   - It also runs the proofOfWork algorithm on the newly created block
 //
 // Returns:
 //   - block: The block that just got created
-func New(data string, prevBlkHash string, height int32) (block Block) {
+func New(data transactions.Transaction, prevBlkHash string, height int32) (block Block) {
 	timestamp := time.Now()
+
+	bytez, err := data.Serialize()
+	if err != nil {
+		panic(err)
+	}
+	val := sha256.Sum256(bytez)
+	hash := hex.EncodeToString(val[:])
+
 	block = Block{
 		Timestamp:     timestamp.Unix(),
-		Transactions:  data,
+		Transactions:  []transactions.Transaction{data},
 		PrevBlockHash: prevBlkHash,
-		Hash:          hex.EncodeToString(sha256.New().Sum([]byte(data))),
+		Hash:          hash,
 		Height:        height,
 		Nonce:         0,
-		logger:        &slog.Logger{},
+		logger:        slog.Default(),
 	}
-	block.runProofOfWork()
+	block.mine() // mine the block
 	return block
 }
-
 
 // NewGenesisBlock creates the first block on the chain known as the 'GENESIS_BLOCK'
 //
 // Note:
 //   - This method should be called once and that is during the BlockChain creation.
+//   - Coinbase is the first coin (base) for cryptocurrency like bitcoin, it has no inputs
 //
 // Returns:
 //   - genesis: the genesis block on the chains
-func NewGenesisBlock() (genesis Block) {
+func NewGenesisBlock(coinbase transactions.Transaction) (genesis Block) {
 	timestamp := time.Now()
 	genesis = Block{
 		Timestamp:     timestamp.Unix(),
-		Transactions:  "GENESIS_BLOCK",
+		Transactions:  []transactions.Transaction{coinbase},
 		PrevBlockHash: "",
 		Hash:          hex.EncodeToString(sha256.New().Sum([]byte(""))),
 		Height:        0,
 		Nonce:         0,
 	}
+	genesis.mine()
 	return genesis
 }
 
 // GetTransaction returns the transaction of the block
-func (b *Block) GetTransaction() string {
+func (b *Block) GetTransaction() []transactions.Transaction {
 	return b.Transactions
 }
 
@@ -100,6 +115,21 @@ func (b *Block) GetHash() string {
 // GetPrevBlockHash returns the hash of the previous block
 func (b *Block) GetPrevBlockHash() string {
 	return b.PrevBlockHash
+}
+
+// GetHeight returns the height of the block
+func (b *Block) GetHeight() int32 {
+	return b.Height
+}
+
+// GetNonce returns the nonce of the block
+func (b *Block) GetNonce() int32 {
+	return b.Nonce
+}
+
+// GetTimestamp returns the timestamp of the block
+func (b *Block) GetTimestamp() int64 {
+	return b.Timestamp
 }
 
 // String returns a string representation of a Block
@@ -123,45 +153,56 @@ func (b *Block) Serialize() (val []byte, err error) {
 
 	// Write Height
 	if err = binary.Write(&buf, binary.LittleEndian, b.Height); err != nil {
-			return val, fmt.Errorf("error writing height: %w", err)
+		err = fmt.Errorf("error writing height: %w", err)
+		return val, err
 	}
 
 	// Write Nonce
 	if err = binary.Write(&buf, binary.LittleEndian, b.Nonce); err != nil {
-		return val, fmt.Errorf("error writing nonce: %w", err)
+		err = fmt.Errorf("error writing nonce: %w", err)
+		return val, err
 	}
 
 	// Write Timestamp
 	if err = binary.Write(&buf, binary.LittleEndian, b.Timestamp); err != nil {
-		return val, fmt.Errorf("error writing timestamp: %w", err)
+		err = fmt.Errorf("error writing timestamp: %w", err)
+		return val, err
 	}
 
-	// Write Transactions
-	txBytes := []byte(b.Transactions)
-	txLen := uint32(len(txBytes))
-	if err = binary.Write(&buf, binary.LittleEndian, txLen); err != nil {
-		return val, fmt.Errorf("error getting length of transaction string: %w", err)
+	// Write number of transactions
+	txCount := uint32(len(b.Transactions))
+	if err := binary.Write(&buf, binary.LittleEndian, txCount); err != nil {
+		err = fmt.Errorf("error writing transaction count: %w", err)
+		return val, err
 	}
-	buf.Write(txBytes)
+
+	// Write Transactions (each one serialized separately)
+	for _, tx := range b.Transactions {
+		txBytes, err := tx.Serialize() // Assuming Transaction has a Serialize method
+		if err != nil {
+			err = fmt.Errorf("error serializing transaction: %w", err)
+			return val, err
+		}
+
+		txLen := uint32(len(txBytes))
+		if err := binary.Write(&buf, binary.LittleEndian, txLen); err != nil {
+			err = fmt.Errorf("error writing transaction length: %w", err)
+			return val, err
+		}
+		buf.Write(txBytes)
+	}
 
 	// Write Hash
-	hashBytes := []byte(b.Hash)
-	hashLen := uint32(len(hashBytes))
-	if err = binary.Write(&buf, binary.LittleEndian, hashLen); err != nil {
-		return val, fmt.Errorf("eerror getting length of hash string: %w", err)
+	if err := toolkit.SerializeString(&buf, b.Hash); err != nil {
+		return val, err
 	}
-	buf.Write(hashBytes)
 
 	// Write Previous Block Hash
-	prevHashBytes := []byte(b.PrevBlockHash)
-	prevHashLen := uint32(len(prevHashBytes))
-	if err = binary.Write(&buf, binary.LittleEndian, prevHashLen); err != nil {
-		return val, fmt.Errorf("eerror getting length of prevBlockHash string: %w", err)
+	if err := toolkit.SerializeString(&buf, b.PrevBlockHash); err != nil {
+		return val, err
 	}
-	buf.Write(prevHashBytes)
 
-	val = buf.Bytes()
-	return val, err
+	return buf.Bytes(), err
 }
 
 // Deserialize converts the bytes data from the storage into a Block
@@ -177,105 +218,102 @@ func (b *Block) Serialize() (val []byte, err error) {
 // Returns:
 //   - err(error): error during deserialization process
 func (b *Block) Deserialize(data []byte) (err error) {
-	if b == nil {
-		return fmt.Errorf("block is nil")
-	}
-
 	buf := bytes.NewReader(data)
 
 	// Read Height
-	if err = binary.Read(buf, binary.LittleEndian, &b.Height); err != nil {
-		return fmt.Errorf("error reading height: %w", err)
+	if err := binary.Read(buf, binary.LittleEndian, &b.Height); err != nil {
+		err = fmt.Errorf("error reading height: %w", err)
+		return err
 	}
 
 	// Read Nonce
-	if err = binary.Read(buf, binary.LittleEndian, &b.Nonce); err != nil {
-		return fmt.Errorf("error reading nonce: %w", err)
+	if err := binary.Read(buf, binary.LittleEndian, &b.Nonce); err != nil {
+		err = fmt.Errorf("error reading nonce: %w", err)
+		return err
 	}
 
 	// Read Timestamp
-	if err = binary.Read(buf, binary.LittleEndian, &b.Timestamp); err != nil {
-		return fmt.Errorf("error reading timestamp: %w", err)
+	if err := binary.Read(buf, binary.LittleEndian, &b.Timestamp); err != nil {
+		err = fmt.Errorf("error reading timestamp: %w", err)
+		return err
+	}
+
+	// Read number of transactions
+	var txCount uint32
+	if err := binary.Read(buf, binary.LittleEndian, &txCount); err != nil {
+		err = fmt.Errorf("error reading transaction count: %w", err)
+		return err
 	}
 
 	// Read Transactions
-	var txLen uint32
-	if err = binary.Read(buf, binary.LittleEndian, &txLen); err != nil {
-		return fmt.Errorf("error reading transaction length: %w", err)
-	}
+	b.Transactions = make([]transactions.Transaction, txCount)
+	for i := uint32(0); i < txCount; i++ {
+		// Read transaction length
+		var txLen uint32
+		if err = binary.Read(buf, binary.LittleEndian, &txLen); err != nil {
+			err = fmt.Errorf("error reading transaction length: %w", err)
+			return err
+		}
 
-	if uint32(buf.Len()) < txLen {
-		return fmt.Errorf("unexpected EOF while reading transactions (expected %d, found %d)", txLen, buf.Len())
-	}
+		// Validate transaction length
+		// ✅ Ensure txLen is within buffer range
+		bufLen := uint32(buf.Len())
+		if txLen == 0 || txLen > bufLen {
+			err = fmt.Errorf("invalid transaction length: %d", txLen)
+			return err
+		}
 
-	txBytes := make([]byte, txLen)
-	if _, err = buf.Read(txBytes); err != nil {
-		return fmt.Errorf("error reading transaction data: %w", err)
+		// Read transaction bytes safely
+		txBytes := make([]byte, txLen)
+		// ✅ Use io.ReadFull for safety
+		if _, err = io.ReadFull(buf, txBytes); err != nil {
+			err = fmt.Errorf("error reading transaction data: %w", err)
+			return err
+		}
+
+		// Deserialize transaction
+		var tx transactions.Transaction
+		if err = tx.Deserialize(txBytes); err != nil {
+			err = fmt.Errorf("error deserializing transaction: %w", err)
+			return err
+		}
+
+		b.Transactions[i] = tx
 	}
-	b.Transactions = string(txBytes)
 
 	// Read Hash
-	var hashLen uint32
-	if err = binary.Read(buf, binary.LittleEndian, &hashLen); err != nil {
-		return fmt.Errorf("error reading hash length: %w", err)
+	hash, err := toolkit.DeserializeString(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		err = fmt.Errorf("error reading hash: %w", err)
+		return err
 	}
-
-	if uint32(buf.Len()) < hashLen {
-		return fmt.Errorf("unexpected EOF while reading hash (expected %d, found %d)", hashLen, buf.Len())
-	}
-
-	hashBytes := make([]byte, hashLen)
-	if _, err = buf.Read(hashBytes); err != nil {
-		return fmt.Errorf("error reading hash data: %w", err)
-	}
-	b.Hash = string(hashBytes)
+	b.Hash = hash
 
 	// Read Previous Block Hash
-	var prevHashLen uint32
-	if err = binary.Read(buf, binary.LittleEndian, &prevHashLen); err != nil {
-		return fmt.Errorf("error reading previous hash length: %w", err)
+	prevHash, err := toolkit.DeserializeString(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		err = fmt.Errorf("error reading previous block hash: %w", err)
+		return err
 	}
+	b.PrevBlockHash = prevHash
 
-	if uint32(buf.Len()) < prevHashLen {
-		return fmt.Errorf("unexpected EOF while reading previous hash (expected %d, found %d)", prevHashLen, buf.Len())
+	// if we get to the end of the input then
+	if err == io.EOF {
+		err = nil
 	}
-
-	prevHashBytes := make([]byte, prevHashLen)
-	if _, err = buf.Read(prevHashBytes); err != nil {
-		return fmt.Errorf("error reading previous hash data: %w", err)
-	}
-	b.PrevBlockHash = string(prevHashBytes)
-
 	return err
 }
 
-// runProofOfWork validates and calculate the hash of the new block to be added
+// mine validates and calculate the hash of the new block to be added
 //
 // Process:
 //   - Validate the block, if the block is not validated increase the block Nonce to increase Hash shuffling
 //   - calculateHash updates the hash of the current block
-func (b *Block) runProofOfWork() {
+func (b *Block) mine() {
 	// first validate the Hash if it is not correct increment the Nonce to affect the Hash shuffling
 	for !b.validate() {
 		b.Nonce += 1
 	}
-	b.calculateHash()
-}
-
-// calculateHash calculates and updates the block's Hash value
-//
-// Process:
-//   - Gets the binary representation of the current block.
-//   - Hash the bytes and encode it into hexadecimal
-//   - Update the block Hash
-func (b *Block) calculateHash() {
-	data, err := b.prepareHashData()
-	if err != nil {
-		fmt.Printf("error preparing Hash data %v", data)
-	}
-
-	hash := sha256.Sum256(data)
-	b.Hash = hex.EncodeToString(hash[:])
 }
 
 // validate validates the block
@@ -292,9 +330,9 @@ func (b *Block) calculateHash() {
 // Returns:
 //   - valid: true if the validation block passes else false.
 func (b *Block) validate() (valid bool) {
-	data, err := b.prepareHashData()
+	data, err := b.Serialize()
 	if err != nil {
-		return false
+		return valid
 	}
 
 	// Hash the bytes of the cloned block and convert it to hexadecimal
@@ -311,14 +349,10 @@ func (b *Block) validate() (valid bool) {
 	// compare the values to see if its valid
 	valid = zeroString == hashPrefix
 
-	return valid
-}
+	// set the Hash of the block if it is valid
+	if valid {
+		b.Hash = hexHash
+	}
 
-// prepareHashData serializes the blocks
-//
-// Returns:
-//   - []bytes: the bytes representation of the block.
-//   - error: the error that occurred while serialization.
-func (b *Block) prepareHashData() ([]byte, error) {
-	return b.Serialize()
+	return valid
 }
