@@ -74,9 +74,9 @@ func New(data transactions.Transaction, prevBlkHash string, height int32) (block
 		Hash:          hash,
 		Height:        height,
 		Nonce:         0,
-		logger:        &slog.Logger{},
+		logger:        slog.Default(),
 	}
-	block.runProofOfWork()
+	block.mine() // mine the block
 	return block
 }
 
@@ -84,6 +84,7 @@ func New(data transactions.Transaction, prevBlkHash string, height int32) (block
 //
 // Note:
 //   - This method should be called once and that is during the BlockChain creation.
+//   - Coinbase is the first coin (base) for cryptocurrency like bitcoin, it has no inputs
 //
 // Returns:
 //   - genesis: the genesis block on the chains
@@ -115,7 +116,7 @@ func (b *Block) GetPrevBlockHash() string {
 	return b.PrevBlockHash
 }
 
-// GetHeight returns t
+// GetHeight returns the height of the block
 func (b *Block) GetHeight() int32 {
 	return b.Height
 }
@@ -220,23 +221,27 @@ func (b *Block) Deserialize(data []byte) (err error) {
 
 	// Read Height
 	if err := binary.Read(buf, binary.LittleEndian, &b.Height); err != nil {
-		return fmt.Errorf("error reading height: %w", err)
+		err =  fmt.Errorf("error reading height: %w", err)
+		return err
 	}
 
 	// Read Nonce
 	if err := binary.Read(buf, binary.LittleEndian, &b.Nonce); err != nil {
-		return fmt.Errorf("error reading nonce: %w", err)
+		err = fmt.Errorf("error reading nonce: %w", err)
+		return err
 	}
 
 	// Read Timestamp
 	if err := binary.Read(buf, binary.LittleEndian, &b.Timestamp); err != nil {
-		return fmt.Errorf("error reading timestamp: %w", err)
+		err = fmt.Errorf("error reading timestamp: %w", err)
+		return err
 	}
 
 	// Read number of transactions
 	var txCount uint32
 	if err := binary.Read(buf, binary.LittleEndian, &txCount); err != nil {
-		return fmt.Errorf("error reading transaction count: %w", err)
+		err = fmt.Errorf("error reading transaction count: %w", err)
+		return err
 	}
 
 	// Read Transactions
@@ -245,27 +250,31 @@ func (b *Block) Deserialize(data []byte) (err error) {
 		// Read transaction length
 		var txLen uint32
 		if err = binary.Read(buf, binary.LittleEndian, &txLen); err != nil {
-			return fmt.Errorf("error reading transaction length: %w", err)
+			err = fmt.Errorf("error reading transaction length: %w", err)
+			return err
 		}
 
 		// Validate transaction length
 		// ✅ Ensure txLen is within buffer range
 		bufLen := uint32(buf.Len())
 		if txLen == 0 || txLen > bufLen {
-			return fmt.Errorf("invalid transaction length: %d", txLen)
+			err = fmt.Errorf("invalid transaction length: %d", txLen)
+			return err
 		}
 
 		// Read transaction bytes safely
 		txBytes := make([]byte, txLen)
 		// ✅ Use io.ReadFull for safety
 		if _, err = io.ReadFull(buf, txBytes); err != nil {
-			return fmt.Errorf("error reading transaction data: %w", err)
+			err = fmt.Errorf("error reading transaction data: %w", err)
+			return err
 		}
 
 		// Deserialize transaction
 		var tx transactions.Transaction
 		if err = tx.Deserialize(txBytes); err != nil {
-			return fmt.Errorf("error deserializing transaction: %w", err)
+			err = fmt.Errorf("error deserializing transaction: %w", err)
+			return err
 		}
 
 		b.Transactions[i] = tx
@@ -274,14 +283,16 @@ func (b *Block) Deserialize(data []byte) (err error) {
 	// Read Hash
 	hash, err := toolkit.DeserializeString(buf)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("error reading hash: %w", err)
+		err = fmt.Errorf("error reading hash: %w", err)
+		return err
 	}
 	b.Hash = hash
 
 	// Read Previous Block Hash
 	prevHash, err := toolkit.DeserializeString(buf)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("error reading previous block hash: %w", err)
+		err = fmt.Errorf("error reading previous block hash: %w", err)
+		return err
 	}
 	b.PrevBlockHash = prevHash
 
@@ -292,12 +303,12 @@ func (b *Block) Deserialize(data []byte) (err error) {
 	return err
 }
 
-// runProofOfWork validates and calculate the hash of the new block to be added
+// mine validates and calculate the hash of the new block to be added
 //
 // Process:
 //   - Validate the block, if the block is not validated increase the block Nonce to increase Hash shuffling
 //   - calculateHash updates the hash of the current block
-func (b *Block) runProofOfWork() {
+func (b *Block) mine() {
 	// first validate the Hash if it is not correct increment the Nonce to affect the Hash shuffling
 	for !b.validate() {
 		b.Nonce += 1
