@@ -10,6 +10,15 @@ Blockchain is divided into key things
 - Transaction Ledger
 - Concensus (Database, who gets to ammend the database or its state?)
 
+> The bitcoin currency is really only the first application of this invention. Bitcoin represents the culmination of decades of research in cryptography and distributed systems and includes four key innovations brought together in a unique and powerful combination. Bitcoin consists of:
+> * A decentralized peer-to-peer network (the bitcoin protocol)
+> * A public transaction ledger (the blockchain)
+> * A set of rules for independent transaction validation and currency issuance (consensus rules)
+> * A mechanism for reaching global decentralized consensus on the valid blockchain (Proof-of-Work algorithm)
+>
+> Source: [Mastering Bitcoin](https://cypherpunks-core.github.io/bitcoinbook/ch01.html)
+
+
 # Resources
 
 - [Bitcoin](https://cypherpunks-core.github.io/bitcoinbook/)

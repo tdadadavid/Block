@@ -93,7 +93,7 @@ func (t *Transaction) GenId() {
 //     the first input output is -1
 //
 // Returns
-//   - bool: True or false informing the caller whether or not it is coinbase transaction
+//   - bool: True or false informing the caller whether it is coinbase transaction
 func (t *Transaction) IsCoinbase() bool {
 	return len(t.Outputs) == 1 && t.Inputs[0].TxnId == "" && t.Inputs[0].Output == -1
 }
@@ -101,7 +101,7 @@ func (t *Transaction) IsCoinbase() bool {
 // Serialize converts a Transaction into a byte slice
 //
 // Process
-//   - First serializes the transaction ID, then iterates through the `Output` & `Input` and serializes them
+//   - First serializes the transaction ID, then iterates through the `Outputs` & `Input` and serializes them
 //
 // Returns
 //   - `val []byte`: The byte value of the current transaction
@@ -162,7 +162,7 @@ func (t *Transaction) Serialize() (val []byte, err error) {
 // Deserialize converts a byte slice back into a Transaction
 //
 // Process
-//   - First reads the transaction ID, then iterates through the `Output` & `Input` and deserilizes them
+//   - First reads the transaction ID, then iterates through the `Outputs` & `Input` and deserilizes them
 //     into the given transaction struct
 //
 // NOTE
