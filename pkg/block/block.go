@@ -20,7 +20,10 @@ var (
 	HashDifficulty int32 = 4
 )
 
-// Block a representation of blocks on chain
+// A grouping of transactions, marked with a timestamp, and a
+// fingerprint of the previous block. The block header is hashed to produce a proof of work,
+// thereby validating the transactions. Valid blocks are added to the main blockchain by network consensus.
+// Ref: https://cypherpunks-core.github.io/bitcoinbook/glossary.html
 type Block struct {
 	// Timestamp captures the time the 'Block' was created
 	Timestamp int64 `json:"timestamp"`
@@ -326,6 +329,7 @@ func (b *Block) mine() {
 //
 // Note:
 //   - After testing this, this computation ran approx 200K times for sample data
+//   - This is the proof-of-work algorithm
 //
 // Returns:
 //   - valid: true if the validation block passes else false.

@@ -119,22 +119,62 @@ func NewChain(ctx context.Context, name, address string) (bc Chain) {
 	return bc
 }
 
-// getLastHash returns the hash of block as "LAST" position
+// FindUnspentTransactions this get the total unspent transaction
 //
-// Process:
-//   - finds block at last position
+// Parameters
+//   - `ctx context.Context`: the context that controls the execution
 //
-// Returns:
-//   - The hash of the block at "LAST" position
-func (c *Chain) getLastHash() (val string, err error) {
-	b, err := c.store.FindLast(c.chainCtx)
-	if err != nil {
-		c.logger.Error("no block in LAST position", slog.Any("error", err))
-		err = fmt.Errorf("error retrieving LAST block %s", err)
-		return val, err
+// Process
+//   - First it gets the unspent transactions for the user by going through every transaction (output) on each block
+//     checking if the user can unlock that transaction (spend it) its then stored in a map,
+//
+// NOTE
+//   - unspent transactions are the outputs (vouts) while the inputs are the spent transactions
+//
+// Returns
+func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]transactions.TxnOutputs {
+	// tracks UTXO (unspent transaction outputs)
+	utxos := make(map[string]transactions.TxnOutputs)
+
+	// tracks the spent outputs for a transactions
+	spentUTXOs := make(map[string][]int)
+
+	iter := c.iter()
+
+	for iter.HasNext(ctx) {
+		b := iter.Next(ctx)
+
+		// get transaction for block
+		for _, txn := range b.GetTransaction() {
+
+		OutputLoop:
+			// get all outputs
+			for outIdx, out := range txn.GetOutputs() {
+				if spentUTXOs[txn.GetId()] != nil {
+					// check if this transaction is in the spent transaction outputs
+					for _, spentOutput := range spentUTXOs[txn.GetId()] {
+						// if the current output has been spent, goto the outer loop & skip this inner
+						if spentOutput == outIdx {
+							continue OutputLoop
+						}
+					}
+				}
+
+				// add the output to map of unspent outputs
+				outs := utxos[txn.GetId()]
+				outs.Outputs = append(outs.Outputs, out)
+				utxos[txn.GetId()] = outs
+			}
+
+			if !txn.IsCoinbase() {
+				// get all inputs for this transaction and mark them spent
+				for _, in := range txn.GetInputs() {
+					spentUTXOs[in.TxnId] = append(spentUTXOs[in.TxnId], int(in.Output))
+				}
+			}
+		}
 	}
-	val = b.GetHash()
-	return val, err
+	return utxos
 }
 
 // AddBlock add a block to the chain
@@ -204,7 +244,7 @@ func (c *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
 	return blocks, err
 }
 
-// iter add a block to the chain
+// iter creates an iterator that iterates over the blockchain
 //
 // Process:
 //   - Creates an iterator object with the currentHash of the chain and the chain itself
@@ -216,4 +256,22 @@ func (c *Chain) iter() ChainIterator {
 		currentHash: c.currentHash,
 		blockchain:  c,
 	}
+}
+
+// getLastHash returns the hash of block as "LAST" position
+//
+// Process:
+//   - finds block at last position
+//
+// Returns:
+//   - The hash of the block at "LAST" position
+func (c *Chain) getLastHash() (val string, err error) {
+	b, err := c.store.FindLast(c.chainCtx)
+	if err != nil {
+		c.logger.Error("no block in LAST position", slog.Any("error", err))
+		err = fmt.Errorf("error retrieving LAST block %s", err)
+		return val, err
+	}
+	val = b.GetHash()
+	return val, err
 }
