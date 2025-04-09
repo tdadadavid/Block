@@ -15,10 +15,6 @@ type TxnOutputs struct {
 	Outputs []TxnOutput `json:"outputs"`
 }
 
-func (txnOutput *TxnOutput) Equals(output *TxnOutput) bool {
-	return txnOutput.Value == output.Value && txnOutput.ScriptPubKey == output.ScriptPubKey
-}
-
 func (to *TxnOutput) CanUnlockWith(data string) bool {
 	return to.ScriptPubKey == data
 }

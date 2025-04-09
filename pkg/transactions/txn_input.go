@@ -12,10 +12,6 @@ type TxnInputs struct {
 	Inputs []TxnInput `json:"inputs"`
 }
 
-func (txnInput *TxnInput) Equals(input *TxnInput) bool {
-	return txnInput.TxnId == input.TxnId && txnInput.Output == input.Output && txnInput.ScriptSignature == input.ScriptSignature
-}
-
 func (to *TxnInput) CanUnlockWith(data string) bool {
 	return to.ScriptSignature == data
 }
