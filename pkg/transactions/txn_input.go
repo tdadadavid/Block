@@ -12,6 +12,6 @@ type TxnInputs struct {
 	Inputs []TxnInput `json:"inputs"`
 }
 
-func (to *TxnInput) CanUnlockWith(data string) bool {
-	return to.ScriptSignature == data
+func (ti *TxnInput) CanUnlockWith(data string) bool {
+	return ti.ScriptSignature == data
 }

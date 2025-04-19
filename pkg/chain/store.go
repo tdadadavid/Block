@@ -35,8 +35,8 @@ type ChainStore struct {
 //   - Inserts the key (block's hash) & serialized block in bytes into the storage
 //
 // Returns
-//   - error: Returns the error during block creation process
-func (cs *ChainStore) Create(ctx context.Context, key string, b block.Block) error {
+//   - error: Returns the error during a block creation process
+func (cs *ChainStore) Create(_ context.Context, key string, b block.Block) error {
 	err := cs.store.Update(func(txn *badger.Txn) (err error) {
 		data, err := b.Serialize()
 		if err != nil {
@@ -62,8 +62,8 @@ func (cs *ChainStore) Create(ctx context.Context, key string, b block.Block) err
 //
 // Returns
 //   - b(block): Returns the block just found
-//   - err(error): Returns the error during block creation process
-func (cs *ChainStore) FindByHash(ctx context.Context, hash string) (b block.Block, err error) {
+//   - err(error): Returns the error during search
+func (cs *ChainStore) FindByHash(_ context.Context, hash string) (b block.Block, err error) {
 	b = block.Block{}
 	err = cs.store.View(func(txn *badger.Txn) error {
 		lastBlock, err := txn.Get([]byte(hash))
@@ -86,9 +86,9 @@ func (cs *ChainStore) FindByHash(ctx context.Context, hash string) (b block.Bloc
 //   - Deserializes the bytes into a block
 //
 // Returns
-//   - block: Returns the block just found
-//   - error: Returns the error during block creation process
-func (cs *ChainStore) FindLast(ctx context.Context) (block.Block, error) {
+//   - block: Returns the block found
+//   - error: Returns the error during search
+func (cs *ChainStore) FindLast(_ context.Context) (block.Block, error) {
 	b := &block.Block{}
 	err := cs.store.View(func(txn *badger.Txn) error {
 		lastBlock, err := txn.Get(LastKey)
@@ -111,8 +111,8 @@ func (cs *ChainStore) FindLast(ctx context.Context) (block.Block, error) {
 //   - Inserts the LastKey ("LAST") & serialized block in bytes into the storage
 //
 // Returns
-//   - error: Returns the error during update process
-func (cs *ChainStore) UpdateLast(ctx context.Context, b block.Block) (err error) {
+//   - error: Returns the error during an update process
+func (cs *ChainStore) UpdateLast(_ context.Context, b block.Block) (err error) {
 	err = cs.store.Update(func(txn *badger.Txn) error {
 		data, err := b.Serialize()
 		if err != nil {
