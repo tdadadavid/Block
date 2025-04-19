@@ -161,7 +161,7 @@ func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]t
 					}
 				}
 
-				// add the output to map of unspent outputs
+				// add the output to the map of unspent outputs
 				outs := utxos[txn.GetId()]
 				outs.Outputs = append(outs.Outputs, out)
 				utxos[txn.GetId()] = outs
