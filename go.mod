@@ -4,8 +4,10 @@ go 1.23.5
 
 require (
 	github.com/dgraph-io/badger/v4 v4.6.0
+	github.com/mr-tron/base58 v1.2.0
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/crypto v0.36.0
 )
 
 require (
