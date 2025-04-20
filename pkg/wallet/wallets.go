@@ -13,8 +13,12 @@ type Wallets struct {
 
 // NewWallets create a new wallets
 func NewWallets() (w Wallets) {
+	w = Wallets{
+		wallets: make(map[string]*Wallet),
+	}
+
 	// open the wallet store
-	ws, err := store.Open("/data/wallets")
+	ws, err := store.Open("./data/wallets")
 	if err != nil {
 		panic(fmt.Errorf("failed to create wallets %v", err))
 	}
@@ -39,4 +43,10 @@ func NewWallets() (w Wallets) {
 	return w
 }
 
-func (w *Wallets) AddWallet(wallet *Wallet) {}
+func (w *Wallets) AddWallet(wallet *Wallet) {
+	w.wallets[string(wallet.PublicKey)] = wallet
+}
+
+func (w *Wallets) GetWallet(pubKey []byte) *Wallet {
+	return w.wallets[string(pubKey)]
+}
