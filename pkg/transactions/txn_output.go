@@ -1,6 +1,6 @@
 package transactions
 
-// Outputs, transaction output, or TxOut is an output in a transaction
+// TxnOutput Outputs, transaction output, or TxOut is an output in a transaction
 // which contains two fields: a value field for transferring zero or more
 // satoshis and a pubkey script for indicating what conditions must be fulfilled
 // for those satoshis to be further spent.

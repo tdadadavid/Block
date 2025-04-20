@@ -19,6 +19,7 @@ type Chain struct {
 	// currentHash the current hash for this chain
 	currentHash string
 
+	// chainCtx is the context for the chain, it is used to control the execution of the chain
 	chainCtx context.Context
 
 	logger *slog.Logger
@@ -119,7 +120,7 @@ func NewChain(ctx context.Context, name, address string) (bc Chain) {
 	return bc
 }
 
-// FindUnspentTransactions this get the total unspent transaction
+// FindUnspentTransactionsOutputs FindUnspentTransactions this get the total unspent transaction
 //
 // Parameters
 //   - `ctx context.Context`: the context that controls the execution
@@ -136,16 +137,16 @@ func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]t
 	// tracks UTXO (unspent transaction outputs)
 	utxos := make(map[string]transactions.TxnOutputs)
 
-	// tracks the spent outputs for a transactions
+	// tracks the spent outputs for a transaction
 	spentUTXOs := make(map[string][]int)
 
 	iter := c.iter()
 
 	for iter.HasNext(ctx) {
-		b := iter.Next(ctx)
+		curBlock := iter.Next(ctx)
 
 		// get transaction for block
-		for _, txn := range b.GetTransaction() {
+		for _, txn := range curBlock.GetTransaction() {
 
 		OutputLoop:
 			// get all outputs
@@ -160,7 +161,7 @@ func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]t
 					}
 				}
 
-				// add the output to map of unspent outputs
+				// add the output to the map of unspent outputs
 				outs := utxos[txn.GetId()]
 				outs.Outputs = append(outs.Outputs, out)
 				utxos[txn.GetId()] = outs
@@ -228,12 +229,12 @@ func (c *Chain) GetAllBlocks() (blocks []*block.Block, err error) {
 	iter := c.iter()
 
 	for iter.HasNext(c.chainCtx) {
-		block := iter.Next(c.chainCtx)
-		if block == nil {
-			err = fmt.Errorf("failed to get block %s", c.currentHash)
+		curBlock := iter.Next(c.chainCtx)
+		if curBlock == nil {
+			err = fmt.Errorf("failed to get curBlock %s", c.currentHash)
 			return blocks, err
 		}
-		blocks = append(blocks, block)
+		blocks = append(blocks, curBlock)
 	}
 
 	// Reverse the blocks to get them in chronological order (oldest first)
