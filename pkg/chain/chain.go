@@ -3,18 +3,17 @@ package chain
 import (
 	"context"
 	"fmt"
+	"github.com/tdadadavid/block/pkg/store"
 	"log/slog"
 
 	"github.com/tdadadavid/block/pkg/block"
 	"github.com/tdadadavid/block/pkg/toolkit"
 	"github.com/tdadadavid/block/pkg/transactions"
-
-	"github.com/dgraph-io/badger/v4"
 )
 
 type Chain struct {
 	// store In memory database that stores the chain's data
-	store *ChainStore
+	store store.Storage
 
 	// currentHash the current hash for this chain
 	currentHash string
@@ -42,17 +41,14 @@ type Chain struct {
 // Returns:
 //   - `bc(Chain)`: The newly created chain
 func New(ctx context.Context, storagePath string) (bc Chain) {
-	// Set the in-memory store for the chain and disable storage logs
-	options := badger.DefaultOptions(storagePath).WithLogger(nil)
-
-	store, err := badger.Open(options)
+	s, err := store.Open(storagePath)
 	if err != nil {
 		panic(fmt.Errorf("failed to create chain %v", err))
 	}
 
 	bc = Chain{
 		chainCtx: ctx,
-		store:    &ChainStore{store: store},
+		store:    s,
 		logger:   slog.Default(),
 	}
 
@@ -82,33 +78,31 @@ func New(ctx context.Context, storagePath string) (bc Chain) {
 // Returns
 //   - `bc Chain`: The newly created chain
 func NewChain(ctx context.Context, name, address string) (bc Chain) {
-	options := badger.DefaultOptions(fmt.Sprintf("./data/%s/blocks", name)).WithLogger(nil)
-
-	store, err := badger.Open(options)
+	s, err := store.Open(fmt.Sprintf("./data/%s/blocks", name))
 	if err != nil {
 		panic(fmt.Errorf("failed to create chain %v", err))
 	}
 
-	// create coinbase transaction & genesis block
-	cbtx := transactions.NewCoinbase(address, transactions.COINBASE_DATA)
-	genesis := block.NewGenesisBlock(*cbtx)
-
 	// create the chain
 	bc = Chain{
 		chainCtx: ctx,
-		store:    &ChainStore{store: store},
+		store:    s,
 		logger:   slog.Default(),
 	}
 
+	// create coinbase transaction and genesis block
+	cbtx := transactions.NewCoinbase(address, transactions.COINBASE_DATA)
+	genesis := block.NewGenesisBlock(*cbtx)
+
 	// store the genesis block in the store and in the 'LAST' position
-	err = bc.store.Create(ctx, genesis.GetHash(), genesis)
+	err = bc.store.CreateBlock(ctx, genesis.GetHash(), genesis)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
 		return
 	}
 
 	// update 'LAST' key in chain point to genesis block.
-	err = bc.store.UpdateLast(bc.chainCtx, genesis)
+	err = bc.store.UpdateLastBlock(bc.chainCtx, genesis)
 	if err != nil {
 		fmt.Println("error while updating last block")
 		return
@@ -190,7 +184,7 @@ func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]t
 //   - Set the Chains hash to the new block's hash
 func (c *Chain) AddBlock(data transactions.Transaction) {
 	// get previous block
-	prevBlock, err := c.store.FindLast(c.chainCtx)
+	prevBlock, err := c.store.FindLastBlock(c.chainCtx)
 	if err != nil || toolkit.Ref(prevBlock) == nil {
 		fmt.Printf("error while finding previous block: %s\n", err)
 		return
@@ -198,14 +192,14 @@ func (c *Chain) AddBlock(data transactions.Transaction) {
 
 	// creates new block with previous block hash
 	newBlock := block.New(data, prevBlock.GetHash(), block.HashDifficulty) // create new block
-	err = c.store.Create(c.chainCtx, newBlock.GetHash(), newBlock)
+	err = c.store.CreateBlock(c.chainCtx, newBlock.GetHash(), newBlock)
 	if err != nil {
 		fmt.Printf("error while creating new block %v", err)
 		return
 	}
 
 	// update 'LAST' key in chain point to new block.
-	err = c.store.UpdateLast(c.chainCtx, newBlock)
+	err = c.store.UpdateLastBlock(c.chainCtx, newBlock)
 	if err != nil {
 		fmt.Println("error while updating last block")
 		return
@@ -267,7 +261,7 @@ func (c *Chain) iter() ChainIterator {
 // Returns:
 //   - The hash of the block at "LAST" position
 func (c *Chain) getLastHash() (val string, err error) {
-	b, err := c.store.FindLast(c.chainCtx)
+	b, err := c.store.FindLastBlock(c.chainCtx)
 	if err != nil {
 		c.logger.Error("no block in LAST position", slog.Any("error", err))
 		err = fmt.Errorf("error retrieving LAST block %s", err)

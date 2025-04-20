@@ -6,6 +6,9 @@ import (
 )
 
 func TestWallet_New(t *testing.T) {
-	w := New()
+	w, err := New()
+	assert.NoError(t, err)
 	assert.NotNil(t, w)
+	assert.NotNil(t, w.GetPrivateKey())
+	assert.NotNil(t, w.GetPublicKey())
 }
