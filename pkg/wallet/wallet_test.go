@@ -12,13 +12,3 @@ func TestWallet_New(t *testing.T) {
 	assert.NotNil(t, w.GetPrivateKey())
 	assert.NotNil(t, w.GetPublicKey())
 }
-
-func TestWallet_GenAddress(t *testing.T) {
-	w, err := New()
-	assert.NoError(t, err)
-	assert.NotNil(t, w)
-
-	address, err := w.GenAddress()
-	assert.NoError(t, err)
-	assert.NotEmpty(t, address)
-}

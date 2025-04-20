@@ -9,11 +9,11 @@ import (
 )
 
 func (c *Chain) FindLast() (block.Block, error) {
-	return c.store.FindLast(c.chainCtx)
+	return c.store.FindLastBlock(c.chainCtx)
 }
 
 func (c *Chain) PrintBlock(hash string) {
-	block, err := c.store.FindByHash(context.Background(), hash)
+	block, err := c.store.FindBlockByHash(context.Background(), hash)
 	if err != nil {
 		fmt.Printf("err printing block")
 	}

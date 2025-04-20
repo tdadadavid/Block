@@ -1,30 +1,65 @@
-package chain
+package store
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/tdadadavid/block/pkg/block"
 )
 
-// LastKey tracks the block at "LAST" position
+// LastKey tracks the block at the "LAST" position
 var LastKey = []byte("LAST")
 
 type Storage interface {
-	FindLastOrCreate(ctx context.Context) block.Block
-	Create(ctx context.Context, key string, b block.Block) error
-	FindByHash(ctx context.Context, hash string) (block.Block, error)
-	FindLast(ctx context.Context) (block.Block, error)
-	UpdateLast(ctx context.Context, b block.Block) error
+	CreateBlock(ctx context.Context, key string, b block.Block) error
+	FindBlockByHash(ctx context.Context, hash string) (block.Block, error)
+	FindLastBlock(ctx context.Context) (block.Block, error)
+	UpdateLastBlock(ctx context.Context, b block.Block) error
+	FindAllWallets(ctx context.Context) ([][]byte, error)
 }
 
-type ChainStore struct {
+type Store struct {
 	store  *badger.DB
 	logger *slog.Logger
 }
 
-// Create this creates new block on the chain
+func Open(path string) (s Storage, err error) {
+	// Set the in-memory store for the chain and disable storage logs
+	options := badger.DefaultOptions(path).WithLogger(nil)
+
+	store, err := badger.Open(options)
+	if err != nil {
+		panic(fmt.Errorf("failed to create chain %v", err))
+	}
+
+	ss := Store{store: store, logger: slog.Default()}
+
+	return &ss, err
+}
+
+func (s *Store) FindAllWallets(ctx context.Context) (wa [][]byte, err error) {
+	err = s.store.View(func(txn *badger.Txn) (err error) {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		opts.Reverse = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			return item.Value(func(val []byte) (err error) {
+				wa = append(wa, val)
+				return err
+			})
+		}
+		return err
+	})
+	return wa, err
+}
+
+// CreateBlock this creates new block on the chain
 //
 // Parameters:
 //   - key(string): The hash of the block that serves as key for the block in the storage
@@ -36,8 +71,8 @@ type ChainStore struct {
 //
 // Returns
 //   - error: Returns the error during a block creation process
-func (cs *ChainStore) Create(_ context.Context, key string, b block.Block) error {
-	err := cs.store.Update(func(txn *badger.Txn) (err error) {
+func (s *Store) CreateBlock(_ context.Context, key string, b block.Block) error {
+	err := s.store.Update(func(txn *badger.Txn) (err error) {
 		data, err := b.Serialize()
 		if err != nil {
 			return err
@@ -51,7 +86,7 @@ func (cs *ChainStore) Create(_ context.Context, key string, b block.Block) error
 	return err
 }
 
-// FindByHash finds a block by the given hash
+// FindBlockByHash finds a block by the given hash
 //
 // Parameters:
 //   - hash(string): The hash of the block that we want to retrieve
@@ -63,9 +98,9 @@ func (cs *ChainStore) Create(_ context.Context, key string, b block.Block) error
 // Returns
 //   - b(block): Returns the block just found
 //   - err(error): Returns the error during search
-func (cs *ChainStore) FindByHash(_ context.Context, hash string) (b block.Block, err error) {
+func (s *Store) FindBlockByHash(_ context.Context, hash string) (b block.Block, err error) {
 	b = block.Block{}
-	err = cs.store.View(func(txn *badger.Txn) error {
+	err = s.store.View(func(txn *badger.Txn) error {
 		lastBlock, err := txn.Get([]byte(hash))
 		if err != nil {
 			return err
@@ -79,7 +114,7 @@ func (cs *ChainStore) FindByHash(_ context.Context, hash string) (b block.Block,
 	return b, err
 }
 
-// FindLast finds a block by the given hash
+// FindLastBlock finds a block by the given hash
 //
 // Process:
 //   - Retrieves the block in bytes if it exists, else returns error
@@ -88,9 +123,9 @@ func (cs *ChainStore) FindByHash(_ context.Context, hash string) (b block.Block,
 // Returns
 //   - block: Returns the block found
 //   - error: Returns the error during search
-func (cs *ChainStore) FindLast(_ context.Context) (block.Block, error) {
+func (s *Store) FindLastBlock(_ context.Context) (block.Block, error) {
 	b := &block.Block{}
-	err := cs.store.View(func(txn *badger.Txn) error {
+	err := s.store.View(func(txn *badger.Txn) error {
 		lastBlock, err := txn.Get(LastKey)
 		if err != nil {
 			return err
@@ -104,7 +139,7 @@ func (cs *ChainStore) FindLast(_ context.Context) (block.Block, error) {
 	return *b, err
 }
 
-// UpdateLast This updates a special key on our chain called "LAST", this key stores the last block on the chain
+// UpdateLastBlock This updates a special key on our chain called "LAST", this key stores the last block on the chain
 //
 // Process:
 //   - Serializes the block
@@ -112,8 +147,8 @@ func (cs *ChainStore) FindLast(_ context.Context) (block.Block, error) {
 //
 // Returns
 //   - error: Returns the error during an update process
-func (cs *ChainStore) UpdateLast(_ context.Context, b block.Block) (err error) {
-	err = cs.store.Update(func(txn *badger.Txn) error {
+func (s *Store) UpdateLastBlock(_ context.Context, b block.Block) (err error) {
+	err = s.store.Update(func(txn *badger.Txn) error {
 		data, err := b.Serialize()
 		if err != nil {
 			return err

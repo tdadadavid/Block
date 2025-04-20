@@ -17,7 +17,7 @@ type ChainIterator struct {
 	// currentHash holds the hash of the currentBlock we are on in the chain
 	currentHash string
 
-	// blockchain holds a pointer to the Chain itself
+	// the blockchain holds a pointer to the Chain itself
 	blockchain *Chain
 }
 
@@ -26,18 +26,18 @@ type ChainIterator struct {
 // Process:
 //   - if the chain is nil no need to iterate stop by returning false
 //   - if the currentHash is empty "" then we know we've reached the end of the chain
-//   - we check if the currentHash points to a valid block, if it does we continue iteration else stop
+//   - we check if the currentHash points to a valid block, if it does, we continue iteration else stop
 //
 // Returns:
 //   - bool: either true or false to signify if the iteration should continue
 func (it *ChainIterator) HasNext(ctx context.Context) bool {
-	// if the chain is empty or the current hash is empty stop iteration
+	// if the chain is empty or the current hash is empty, stop iteration
 	if it.blockchain == nil || it.currentHash == "" {
 		return false
 	}
 
-	// check if the block of the currentHash exists if it does the continue iteration else stop.
-	_, err := it.blockchain.store.FindByHash(ctx, it.currentHash)
+	// check if the block of the currentHash exists if it does the continued iteration else stop.
+	_, err := it.blockchain.store.FindBlockByHash(ctx, it.currentHash)
 	if err != nil {
 		return false
 	}
@@ -49,7 +49,7 @@ func (it *ChainIterator) HasNext(ctx context.Context) bool {
 //
 // Process:
 //   - Check if there is a next using the HasNext method if it does continue iteration else returns nil and set the currentHash to empty.
-//   - Find the current-block using the currentHash, if the block is not found return nil and set the currentHash to empty.
+//   - Find the current-block using the currentHash, if the block is not found, return nil and set the currentHash to empty.
 //   - Set the currentHash to the PreviousHash of the currentBlock, this way we move backwards to the genesis block
 //
 // Returns:
@@ -62,7 +62,7 @@ func (it *ChainIterator) Next(ctx context.Context) (curBlock *block.Block) {
 	}
 
 	// find the current block using the current hash
-	b, err := it.blockchain.store.FindByHash(ctx, it.currentHash)
+	b, err := it.blockchain.store.FindBlockByHash(ctx, it.currentHash)
 	if err != nil {
 		it.currentHash = ""
 		return curBlock

@@ -1,9 +1,12 @@
 package wallet
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
 	"github.com/tdadadavid/block/pkg/toolkit"
+	"math/big"
 )
 
 const (
@@ -20,11 +23,6 @@ type Wallet struct {
 
 	// PublicKey is the Public key for the wallet used to sign transaction
 	PublicKey []byte `json:"public_key"`
-}
-
-// Wallets store all the available wallets in a chain
-type Wallets struct {
-	wallets map[string]*Wallet
 }
 
 // New creates a new wallet
@@ -109,4 +107,84 @@ func (w *Wallet) GenAddress() (address []byte, err error) {
 	fmt.Printf("base58 address for wallet 0x%x\n", address)
 
 	return address, err
+}
+
+func (w *Wallet) Serialize() (data []byte, err error) {
+	// Create a buffer to store the serialized data
+	var buf bytes.Buffer
+
+	// Write private key components
+	// First write D (private key number)
+	d := w.SecretKey.D.Bytes()
+	if err := toolkit.SerializeString(&buf, string(d)); err != nil {
+		err = fmt.Errorf("failed to serialize private key D: %w", err)
+		return data, err
+	}
+
+	// Write curve parameters (X and Y of public key point)
+	x := w.SecretKey.PublicKey.X.Bytes()
+	if err := toolkit.SerializeString(&buf, string(x)); err != nil {
+		err = fmt.Errorf("failed to serialize public key X: %w", err)
+		return data, err
+	}
+
+	y := w.SecretKey.PublicKey.Y.Bytes()
+	if err := toolkit.SerializeString(&buf, string(y)); err != nil {
+		err = fmt.Errorf("failed to serialize public key Y: %w", err)
+		return data, err
+	}
+
+	// Write public key bytes
+	if err := toolkit.SerializeString(&buf, string(w.PublicKey)); err != nil {
+		err = fmt.Errorf("failed to serialize public key bytes: %w", err)
+		return data, err
+	}
+
+	return buf.Bytes(), err
+}
+
+func (w *Wallet) Deserialize(data []byte) (err error) {
+	buf := bytes.NewReader(data)
+
+	// Read private key parts
+	// Read D
+	d, err := toolkit.DeserializeString(buf)
+	if err != nil {
+		err = fmt.Errorf("failed to deserialize private key D: %w", err)
+		return err
+	}
+
+	// Read public key point coordinates
+	x, err := toolkit.DeserializeString(buf)
+	if err != nil {
+		err = fmt.Errorf("failed to deserialize public key X: %w", err)
+		return err
+	}
+
+	y, err := toolkit.DeserializeString(buf)
+	if err != nil {
+		err = fmt.Errorf("failed to deserialize public key Y: %w", err)
+		return err
+	}
+
+	// Reconstruct the private key
+	curve := elliptic.P256() // Using a P256 curve as it's commonly used
+	w.SecretKey = ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: curve,
+			X:     new(big.Int).SetBytes([]byte(x)),
+			Y:     new(big.Int).SetBytes([]byte(y)),
+		},
+		D: new(big.Int).SetBytes([]byte(d)),
+	}
+
+	// Read public key bytes
+	publicKey, err := toolkit.DeserializeString(buf)
+	if err != nil {
+		err = fmt.Errorf("failed to deserialize public key bytes: %w", err)
+		return err
+	}
+	w.PublicKey = []byte(publicKey)
+
+	return err
 }
