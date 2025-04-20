@@ -143,10 +143,10 @@ func (c *Chain) FindUnspentTransactionsOutputs(ctx context.Context) map[string]t
 	iter := c.iter()
 
 	for iter.HasNext(ctx) {
-		b := iter.Next(ctx)
+		curBlock := iter.Next(ctx)
 
 		// get transaction for block
-		for _, txn := range b.GetTransaction() {
+		for _, txn := range curBlock.GetTransaction() {
 
 		OutputLoop:
 			// get all outputs
